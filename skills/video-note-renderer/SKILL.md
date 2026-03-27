@@ -196,6 +196,13 @@ Deliver all of the following:
 - the compiled PDF
 - transcript outputs (`.srt` and `.json`) when local speech-to-text was used
 
+When responding with final artifact locations:
+
+- always include the local filesystem paths for the generated outputs
+- if running inside WSL, also provide Windows File Explorer paths that can be opened directly, using `wslpath -w`
+- for example, convert `/root/tmp/example/output.pdf` into a path such as `\\wsl.localhost\Ubuntu-22.04\root\tmp\example\output.pdf`
+- prioritize the PDF and `.tex` paths, and include transcript or figure directories when they are part of the deliverable
+
 ## Asset
 
 - `assets/notes-template.tex`: default LaTeX template to fill
