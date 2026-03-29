@@ -1,6 +1,6 @@
 # Runtime
 
-Local runtime helpers for `video-note-renderer`.
+Local runtime helpers for `video2note`.
 
 Default stack:
 
@@ -50,6 +50,6 @@ Example:
 
 ```bash
 source ./env.sh
-python transcribe_with_faster_whisper.py input.wav --model large-v3 --language zh --device cuda --batch-size 16 --output-dir out
+python transcribe_with_faster_whisper.py input.wav --model large-v3 --language zh --device cuda --batch-size 32 --output-dir out
 python run_ppocrv5.py frames/ --device cpu --output-dir ocr-out
 ```

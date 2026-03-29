@@ -1,4 +1,0 @@
-interface:
-  display_name: "Video Note Renderer"
-  short_description: "Turn a Bilibili, YouTube, TikTok, or Douyin video into a structured LaTeX/PDF note set."
-  default_prompt: "Use this skill to turn a Bilibili, YouTube, TikTok, or Douyin lecture, tutorial, replay, or analytical video into a high-quality Chinese LaTeX note with extracted figures, timestamped transcription via faster-whisper large-v3, OCR support via PaddleOCR PP-OCRv5, the original video cover on the front page when available, and a final synthesis section."

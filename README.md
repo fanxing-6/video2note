@@ -1,4 +1,4 @@
-# video-note-renderer
+# video2note
 
 把 Bilibili、YouTube、TikTok 或 Douyin 上的讲座、直播回放、教程、技术分享视频，整理成结构化的中文 LaTeX 笔记，并最终渲染为 PDF。
 
@@ -13,7 +13,7 @@
 
 ```text
 skills/
-  video-note-renderer/
+  video2note/
     SKILL.md
     agents/openai.yaml
     assets/notes-template.tex
@@ -26,8 +26,8 @@ skills/
 
 ```bash
 python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo fanxing-6/video-note-renderer \
-  --path skills/video-note-renderer
+  --repo fanxing-6/video2note \
+  --path skills/video2note
 ```
 
 安装完成后，重启 Codex 以加载这个 skill。
@@ -37,13 +37,13 @@ python3 ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-githu
 运行时脚本位于：
 
 ```bash
-skills/video-note-renderer/runtime/
+skills/video2note/runtime/
 ```
 
 安装后的典型使用方式：
 
 ```bash
-cd ~/.codex/skills/video-note-renderer/runtime
+cd ~/.codex/skills/video2note/runtime
 ./setup_runtime.sh
 source ./env.sh
 ```
