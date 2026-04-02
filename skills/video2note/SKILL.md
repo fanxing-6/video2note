@@ -1,20 +1,20 @@
 ---
 name: video2note
-description: Generate a professional, figure-rich LaTeX course note and final PDF from a Bilibili, YouTube, TikTok, or Douyin lecture, tutorial, technical talk, analytical video, or livestream replay. Use when the user provides one of those video URLs and wants structured Chinese notes that combine the video's title, cover, key frames, charts, formulas, code, subtitle or speech-to-text explanations, and a final synthesis chapter, with the output delivered as a complete `.tex` file plus a rendered PDF.
+description: 根据用户提供的 Bilibili、YouTube、TikTok 或 Douyin 视频链接，生成一份专业、图文并茂的中文 LaTeX 课程笔记及最终 PDF。适用于讲座、教程、技术分享、分析类视频或直播回放。输出包含视频标题、封面、关键帧、图表、公式、代码、字幕或语音转文本讲解，以及最终综合章节，以完整的 `.tex` 文件和渲染后的 PDF 形式交付。
 ---
 
 # Video2Note
 
-Use this skill to turn a Bilibili, YouTube, TikTok, or Douyin video into a complete, compileable `.tex` note and a rendered PDF.
+使用本 Skill 将 Bilibili、YouTube、TikTok 或 Douyin 视频转换为一份完整、可编译的 `.tex` 笔记及渲染后的 PDF。
 
-## Runtime Baseline
+## 运行时基线
 
-Use the following local stack by default:
+默认使用以下本地技术栈：
 
-- ASR: `faster-whisper` with `whisper-large-v3`
-- OCR: `PaddleOCR` with `PP-OCRv5_server`
+- **ASR（自动语音识别）**：`faster-whisper`，模型 `whisper-large-v3`
+- **OCR（光学字符识别）**：`PaddleOCR`，模型 `PP-OCRv5_server`
 
-Runtime helpers live in `runtime/`:
+Skill 自带的运行时辅助脚本源码位于 `runtime/` 目录下：
 
 - `setup_runtime.sh`
 - `env.sh`
@@ -23,320 +23,345 @@ Runtime helpers live in `runtime/`:
 - `merge_chunked_transcripts.py`
 - `resolve_dlpanda.py`
 
-Start from this stack unless the current media demonstrably requires a different tool.
+目录职责必须严格区分：
 
-### Model Execution Policy
+- `runtime/`：只表示脚本源码目录
+- `VIDEO2NOTE_HOME`：唯一真实共享运行时目录
+- `VIDEO2NOTE_TMPDIR`：任务产出根目录
 
-Any model-backed step should prefer GPU by default.
+默认目录约定如下：
 
-- Run Whisper on `--device cuda` whenever a usable GPU is present.
-- Favor larger GPU batch sizes first and only back off if the runtime fails or runs out of memory.
-- Prefer GPU for OCR when the runtime supports it.
-- Only fall back to CPU when GPU is unavailable or demonstrably failing.
+- 共享运行时根目录：`$HOME/video2note`；若当前 shell 未设置 `HOME`，则回退到 `$USERPROFILE/video2note`
+- 共享虚拟环境：`$VIDEO2NOTE_HOME/.venv`
+- 任务产出根目录：`${TMPDIR:-/tmp}/video2note`；若 `TMPDIR` 不存在，则回退到 `${TEMP}`、`${TMP}` 或 `/tmp/video2note`
+- 每次任务都应在 `VIDEO2NOTE_TMPDIR` 下创建独立子目录，避免互相覆盖
 
-## Goal
+除非当前媒体明确需要其他工具，否则请从上述技术栈开始。
 
-Produce a professional Chinese lecture note from a video URL.
+### 模型执行策略
 
-The output must:
+任何依赖模型的步骤都应默认优先使用 GPU：
 
-- use the video's actual teaching or analytical content rather than transcript text alone
-- place the video's original cover image on the front page whenever available
-- include all necessary high-value key frames as figures, without redundant screenshots
-- end with a final synthesis section that includes the speaker's substantive closing discussion and your own distilled takeaways
-- be structurally organized with `\section{...}` and `\subsection{...}`
-- be a complete `.tex` document from `\documentclass` to `\end{document}`
-- be compiled successfully to PDF as part of the final delivery
+- 只要 GPU 路径已经准备完整，Whisper 转录必须优先在 `--device cuda` 上运行。
+- “较大的 GPU 批大小优先”表示探索顺序，而不是固定默认值；对真实长音频，稳定值依赖显存、模型和音频长度。
+- 默认应从更保守的 GPU `batch-size` 起步，再逐步上探，而不是把 `32` 当作稳定基线。
+- 若遇到 `CUDA out of memory`，优先降低 `batch-size`，继续坚持 GPU，而不是立即回退 CPU。
+- 若遇到 `libcublas`、`libcudnn`、`nvrtc` 等 CUDA 库缺失，应先补齐共享运行时依赖，再重试 GPU 路径。
+- OCR 在运行时支持的情况下也应优先使用 GPU。
+- 仅在 GPU 不可用或明确出现故障时，才回退到 CPU。
 
-## Pedagogical Standard
+## 平台解析 SOP 索引
 
-The notes must read like a strong human teacher is guiding the reader through the material.
+主文档只定义统一规则，不展开各平台的具体解析步骤。
+当输入链接属于某个平台时，必须跳转到对应 SOP 文档，并按其中的标准流程执行。
 
-- organize each major section so the reader first understands the motivation, then the main idea, then the mechanism, then the example or evidence, and finally the takeaway
-- keep the logic continuous and the motivation explicit; make it clear why a concept appears, what problem it solves, and why the next idea follows
-- aim for deep-but-accessible explanations: keep the technical depth, but introduce formalism only after giving intuition in plain language
-- when a section is dense, break it into smaller subsections that progressively build understanding rather than compressing everything into one long derivation
-- do not dump subtitle or ASR content in chronological order; rewrite it into a teaching sequence with clear intent, contrast, and buildup
+- YouTube：查看 `sops/youtube.md`
+- Bilibili：查看 `sops/bilibili.md`
+- TikTok / Douyin：查看 `sops/tiktok-douyin.md`
 
-## Supported Platforms
+平台解析方式、命令模板、失败分支、回退规则和落盘目录约定，以对应 SOP 文档为准。
+不要把多个平台的具体解析步骤混写在当前主文档中。
+
+## 目标
+
+根据视频链接生成一份专业的中文讲座笔记。
+
+输出必须满足以下要求：
+
+- 基于视频实际的教学或分析内容，而非仅依赖转录文本
+- 在首页放置视频的原始封面图（如有）
+- 包含所有必要的高价值关键帧作为插图，避免冗余截图
+- 以最终综合章节收尾，涵盖演讲者的实质性总结讨论以及你自己提炼的核心要点
+- 结构上使用 `\section{...}` 和 `\subsection{...}` 进行组织
+- 从 `\documentclass` 到 `\end{document}` 构成一份完整的 `.tex` 文档
+- 作为最终交付物的一部分，必须成功编译为 PDF
+
+## 教学标准
+
+笔记的阅读体验应当像一位优秀的教师在引导读者学习材料。
+
+- 每个主要章节的组织顺序为：先讲动机，再讲核心思想，然后是机制原理，接着是示例或证据，最后是总结要点
+- 保持逻辑连贯、动机明确；清楚说明一个概念为何出现、它解决了什么问题、以及下一个概念为何随之而来
+- 追求“深入但易懂”的解释：保留技术深度，但仅在给出直观的白话解释之后才引入形式化表达
+- 当某一节内容密集时，将其拆分为更小的子节，逐步建立理解，而不是把所有内容压缩进一个冗长的推导中
+- 不要按时间顺序堆砌字幕或 ASR 内容；将其重写为具有明确意图、对比和递进关系的教学序列
+
+## 支持的平台
 
 ### YouTube
 
-- inspect title, duration, chapters, thumbnail, and subtitle tracks first
-- prefer manual subtitles over auto subtitles
-- prefer the best usable video source for figure extraction
+- 支持 `youtube.com/watch` 与 `youtu.be` 短链接
+- 具体解析流程必须查看 `sops/youtube.md`
 
 ### Bilibili
 
-- inspect title, duration, thumbnail, and whether the video is multi-part
-- detect 分P videos and ask which parts to process before downloading
-- prefer CC subtitles when present
-- if CC subtitles are absent, fall back to local speech-to-text via `faster-whisper`
-- note that higher resolutions on Bilibili may require cookies
-- do not use danmaku as a teaching source
+- 支持 `bilibili.com/video/BV...` 与 `b23.tv` 短链接
+- 具体解析流程必须查看 `sops/bilibili.md`
 
 ### TikTok / Douyin
 
-- do not make logged-in platform extraction the primary path
-- resolve the share link through `runtime/resolve_dlpanda.py`
-- fetch the `dlpanda` homepage, extract the hidden `t0ken`, request the result HTML, and parse the direct media links
-- prefer the direct playable media URL from the result HTML over the website's proxy download endpoint
-- use the downloaded local MP4 as the source for transcription and frame extraction
+- 具体解析流程必须查看 `sops/tiktok-douyin.md`
 
-## Source Acquisition
+## 源文件获取总规则
 
-1. Inspect metadata first.
-   Prefer title, chapters, duration, thumbnail availability, subtitle availability, and part structure before writing.
+1. **首先检查元数据**
+   在动笔之前，优先获取标题、章节、时长、缩略图可用性、字幕可用性和分 P 结构。
 
-2. Acquire the original cover image before writing the `.tex`.
-   Save it locally and reference that local file on the front page.
+2. **在编写 `.tex` 之前获取原始封面图**
+   将其保存到本地，并在首页引用该本地文件。
 
-3. Acquire subtitles or speech-to-text.
+3. **获取字幕或语音转文字结果**
+   字幕优先级和平台分支以对应 SOP 文档为准。
 
-   Subtitle priority:
+4. **图片提取优先使用最佳可用视频文件。**
 
-   - YouTube manual subtitles
-   - YouTube auto subtitles if no manual track is suitable
-   - Bilibili CC subtitles
-   - TikTok/Douyin local speech-to-text after resolving the direct video link
-   - local speech-to-text using `runtime/transcribe_with_faster_whisper.py`
+5. **在可行的情况下将源文件保存在当前任务目录。**
+   当前任务目录应位于 `VIDEO2NOTE_TMPDIR` 下的独立子目录中。
 
-4. Prefer the best usable video file for frame extraction.
+## 长视频策略
 
-5. Keep source artifacts local when practical.
-   Typical artifacts are metadata, cover image, transcript outputs, local video, extracted frames, OCR results, and resolved HTML for TikTok/Douyin when used.
+对于较长视频，不要依赖单次整体性遍历。
 
-## Long Video Strategy
+- 若视频时长超过 20 分钟，或字幕/ASR 条目超过 300 条，则将工作拆分为更小的片段。
+- 优先按章节边界拆分；对于 Bilibili，多 P 视频还应优先按分 P 边界拆分。
+- 若章节不可用、分 P 不适用或分布不均，则按合理的时间窗口或字幕范围拆分。
+- 若用户明确要求使用子代理（sub-agents）且环境支持，可并行分析各片段；否则在本地完成分段并手动整合。
+- 每个片段的分析应返回：该片段的教学目标、核心论点、重要公式或代码、所需插图及其对应的时间来源，以及整合时需要解决的歧义。
+- 当解释跨越边界时，让相邻片段保持少量重叠，然后在整合阶段去重。
+- 最终 PDF 必须读起来像一篇连贯的笔记，而不是各片段摘要的简单拼接。
 
-For longer videos, do not rely on a single monolithic pass.
+## 语音转文字
 
-- If the video is longer than 20 minutes, or the subtitle / ASR file contains more than 300 subtitle entries, split the work into smaller segments.
-- Prefer chapter boundaries for splitting. If chapters are unavailable or too uneven, split by coherent time windows or subtitle ranges.
-- If the user explicitly asks for sub-agents and they are available, parallelize segment analysis with sub-agents; otherwise keep the segmentation local and integrate manually.
-- Each segment analysis should return: the segment's teaching goal, the core claims, important formulas or code, required figures with time provenance, and any ambiguities that need integration-time resolution.
-- Keep a small overlap between neighboring segments when the explanation crosses boundaries, then deduplicate during integration.
-- The final PDF must read like one coherent note, not a concatenation of chunk summaries.
-
-## Speech-to-Text
-
-When subtitles are unavailable or insufficient, extract audio and transcribe locally.
+当字幕不可用或不够充分时，提取音频并在本地进行转录。
 
 ```bash
 ffmpeg -i input.m4a -ar 16000 -ac 1 audio.wav -y
-python runtime/transcribe_with_faster_whisper.py \
+python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" \
   audio.wav \
   --model large-v3 \
   --language zh \
   --device cuda \
-  --batch-size 32 \
-  --output-dir transcript
+  --batch-size 8 \
+  --output-dir "$TASK_DIR/transcript"
 ```
 
-For long recordings, chunk the audio and merge later:
+转录前必须先确保输入媒体已经稳定落盘，不要把“下载音频/视频”和“转 wav + ASR”并行触发。
+
+对于较长的录音，先分块处理再合并：
 
 ```bash
 ffmpeg -i audio.wav -f segment -segment_time 1800 -c copy audio_chunks/chunk_%02d.wav -y
-python runtime/transcribe_with_faster_whisper.py audio_chunks/chunk_00.wav --model large-v3 --language zh --device cuda --batch-size 32 --output-dir chunk_transcripts
-python runtime/merge_chunked_transcripts.py chunk_transcripts --stem merged
+python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" audio_chunks/chunk_00.wav --model large-v3 --language zh --device cuda --batch-size 8 --output-dir "$TASK_DIR/chunk_transcripts"
+python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/merge_chunked_transcripts.py" "$TASK_DIR/chunk_transcripts" --stem merged
 ```
-
-## TikTok / Douyin Resolution
-
-Use `runtime/resolve_dlpanda.py` when the source is TikTok or Douyin.
-
-```bash
-python runtime/resolve_dlpanda.py \
-  "https://v.douyin.com/xxxxxxxx/" \
-  --save-html dlpanda-result.html \
-  --download-video input.mp4
-```
-
-The helper will:
-
-- fetch `https://dlpanda.com/`
-- extract the hidden `t0ken`
-- request the resolved HTML result page
-- parse the direct `video_url`, `audio_url`, proxy URL, and suggested filename
-- optionally download the direct MP4 locally
 
 ## OCR
 
-Use OCR to support frame selection and figure interpretation, not to replace the speaker's main line of reasoning.
+使用 OCR 来辅助帧选和图片解读，而不是取代演讲者的主要论证逻辑。
 
 ```bash
-python runtime/run_ppocrv5.py frames/ --device cpu --output-dir ocr-out
+python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/run_ppocrv5.py" frames/ --device cpu --output-dir "$TASK_DIR/ocr-out"
 ```
 
-Use OCR especially for:
+OCR 特别适用于以下场景：
 
-- charts
-- tables
-- slide bullets
-- formulas
-- overlays that explain the current visual state
+- 图表
+- 表格
+- 幻灯片要点
+- 公式
+- 解释当前视觉状态的叠加图层
 
-Do not treat livestream overlays, gifts, or auto-generated meeting summaries as primary evidence unless the speaker explicitly relies on them.
+请勿将直播叠加图层、礼物特效或自动生成的会议摘要作为主要证据，除非演讲者明确依赖它们。
 
-For semantic understanding of frames:
+对于帧的语义理解：
 
-- prefer direct visual inspection with the available image-viewing tool over OCR-only judgment
-- do not treat OCR output as a substitute for actually checking what the frame shows
-- use OCR to supplement figure extraction and reading, not to decide the full semantic meaning of a visual by itself
+- 优先使用可用的图像查看工具直接检查帧，而非仅依赖 OCR 判断
+- 不要将 OCR 输出视为实际查看帧内容的替代品
+- 使用 OCR 作为插图提取和阅读的补充手段，而不是单独用它来决定视觉内容的完整语义
 
-## Teaching Content Rules
+## 教学内容规则
 
-Build notes from:
+笔记内容应基于以下素材构建：
 
-- title and chapter structure when available
-- the original cover image
-- on-screen diagrams, formulas, tables, charts, and slides
-- subtitle or ASR explanations
-- code snippets shown or discussed
+- 标题和章节结构（如有）
+- 原始封面图
+- 屏幕上的示意图、公式、表格、图表和幻灯片
+- 字幕或 ASR 讲解
+- 展示或讨论的代码片段
 
-Skip or down-weight:
+以下内容应跳过或降低权重：
 
-- greetings
-- small talk
-- sponsorship
-- platform logistics
-- repetitive audience interaction
-- overlays, gifts, and summary widgets that do not add substantive analytical content
+- 问候和寒暄
+- 闲聊
+- 赞助内容
+- 平台后勤信息
+- 重复性的观众互动
+- 对实质性分析内容没有贡献的叠加图层、礼物特效和总结挂件
 
-## Writing Rules
+## 写作规则
 
-1. Write in Chinese unless the user asks for another language.
+1. 除非用户要求其他语言，否则使用中文撰写。
 
-2. Reconstruct the teaching flow when needed; do not blindly mirror subtitle order.
-   Each section should answer, in order when applicable: what problem is being solved, why simpler views are insufficient, what the core idea is, how it works, and what the reader should retain.
+2. 在需要时重构教学流程；不要盲目照搬字幕顺序。
+   每个章节在适用情况下应按以下顺序回答：正在解决什么问题、为什么更简单的视角不够、核心思想是什么、如何运作、以及读者应记住什么。
 
-3. Start from `assets/notes-template.tex`.
+3. 以 `assets/notes-template.tex` 为起点。
 
-4. Put the original video cover on the front page when available.
+4. 在可用时，将原始视频封面放在首页。
 
-5. Use figures whenever they materially improve explanation.
+5. 当图片能够实质性提升解释效果时，使用插图。
 
-6. Do not place images inside custom message boxes.
+6. 不要将图片放置在自定义消息框内。
 
-7. When a mathematical formula appears:
-   first explain in plain Chinese what the formula is trying to express and why it appears
-   show it in `$$...$$`
-   then immediately explain every symbol in a flat list
+7. 当出现数学公式时：
+   先用中文白话解释该公式试图表达什么以及它为何出现
+   然后在 `$$...$$` 中展示公式
+   紧接着用平铺列表解释每个符号的含义
 
-8. When code examples appear:
-   explain the role of the code before the listing and summarize the expected behavior after it when useful
-   wrap them in `lstlisting`
-   include a descriptive `caption`
+8. 当出现代码示例时：
+   在代码清单之前解释代码的作用，之后如有需要总结预期行为
+   将其包裹在 `lstlisting` 环境中
+   添加描述性的 `caption`
 
-9. Use `importantbox`, `knowledgebox`, and `warningbox` only for high-signal teaching content.
+9. 有意识地使用 `importantbox`、`knowledgebox` 和 `warningbox` 来承载高价值教学信号。
+   - `importantbox` 用于读者必须带走的核心概念、关键结论、机制摘要、关键步骤或稠密内容后的压缩重述
+   - `knowledgebox` 用于改善理解但不属于主线的背景知识，如前置知识、历史脉络、术语对比、工程上下文、设计权衡和直觉类比
+   - `warningbox` 用于常见误解、隐藏前提、易错实现点、错误直觉与正确直觉的对照
+   - 不存在“每章一个 box”的配额；只有在内容真正承载清晰教学信号时才使用
+   - box 应尽量紧跟触发它的段落、推导或示例，而不是孤立堆放
+   - 常规叙述应保持普通正文；box 用于高信噪比要点，而不是装饰
+   - 图片必须放在 `importantbox`、`knowledgebox` 和 `warningbox` 之外
 
-10. End each major section with `\subsection{本章小结}`.
+10. 每个主要章节以 `\subsection{本章小结}` 收尾。
+   当确实存在一到两个高价值外部链接时，可额外添加 `\subsection{拓展阅读}`。
 
-11. End the document with `\section{总结与延伸}`.
+11. 文档以 `\section{总结与延伸}` 结束。
+   该节必须尽可能包含：
+   - 演讲者在收尾阶段给出的实质性总结，而不是礼貌性结束语
+   - 你对核心论点、机制和实践含义的结构化提炼
+   - 跨章节的综合归纳、概念压缩和必要的交叉关联
+   - 当材料支持时，给出可执行的 takeaway、开放问题或后续思考方向
 
-12. Do not emit `[cite]` placeholders in the LaTeX.
+12. 不要在 LaTeX 中输出 `[cite]` 占位符。
 
-## Figure Handling
+## 图片处理
 
-Select figures by teaching value, not by an arbitrary quota.
+根据教学价值选择插图，而非套用任意配额。
 
-When locating candidate frames, bias strongly toward recall before precision.
-It is better to inspect too many nearby candidates first than to miss the one frame where the slide, formula, table, or diagram is finally fully revealed and readable.
+在定位候选帧时，前期应强烈偏向召回率（recall）而非精确率（precision）。
+宁可先检查过多附近的候选帧，也不要错过幻灯片、公式、表格或示意图最终完整呈现且清晰可读的那一帧。
 
-Frame understanding must come from direct visual inspection.
+帧的理解必须来自直接的视觉检查。
 
-- Use the available image-viewing tool, such as `view image` when supported, to inspect candidate frames and crops before deciding what they show, how they should be described, and whether they are complete enough to include.
-- Do not use OCR tools such as `tesseract` as a substitute for visual understanding of a frame.
-- Do not infer a frame's semantic content only from nearby subtitles, filenames, OCR text, or timestamps without checking the image itself.
-- Contact sheets, montages, and tiled strips are good for recall, but final keep-or-reject decisions and semantic naming must be based on actual image inspection.
+- 使用可用的图像查看工具（如支持的 `view image`）在决定帧的内容、描述方式以及完整度是否足够之前，先检查候选帧和裁剪区域
+- 不要用 OCR 工具（如 `tesseract`）替代对帧的视觉理解
+- 不要仅根据附近的字幕、文件名、OCR 文本或时间戳来推断帧的语义内容，而不亲自查看图片本身
+- 联系表（contact sheets）、蒙太奇和拼贴条带有助于提高召回率，但最终的去留决定和语义命名必须基于对实际图像的检查
 
-### Frame Selection Checklist
+### 帧选择检查清单
 
-Before inserting any video frame, inspect several nearby candidates from the same transcript-aligned interval and apply this checklist. If any item fails, reject the frame and keep searching nearby rather than forcing an approximate match.
+在插入任何视频帧之前，从同一转录对齐区间中检查多个附近的候选帧，并应用以下检查清单。若有任何一项未通过，则拒绝该帧并继续在附近搜索，而不是强行凑合。
 
-- Relevance: the frame must directly support the exact concept discussed in the surrounding paragraph or subsection, not just the same broad topic.
-- Required content visible: every visual element referenced in the text must already be visible in the frame.
-- Fully revealed state: when slides, whiteboards, animations, or dashboards build progressively, use the final fully populated readable state rather than an intermediate state.
-- Best nearby candidate: compare multiple nearby frames and prefer the one that is both most complete and most readable.
-- Readability: text, formulas, labels, and diagram structure must be legible enough to justify inclusion.
-- Crop opportunity: if irrelevant borders, UI chrome, subtitles, or decorative elements weaken clarity, crop the frame before inclusion.
+- **相关性**：该帧必须直接支持周围段落或子节讨论的**确切**概念，而非仅仅是同一宽泛主题。
+- **必要内容可见**：文本中引用的每个视觉元素都必须在帧中已经可见。
+- **完全呈现状态**：当幻灯片、白板、动画或仪表板逐步构建时，使用最终完全填充且可读的状态，而非中间过渡状态。
+- **附近最佳候选**：对比多个附近的帧，优先选择既最完整又最清晰的帧。
+- **可读性**：文字、公式、标签和图表结构必须足够清晰，以证明其值得被包含。
+- **裁剪机会**：如果无关边框、UI 外壳、字幕或装饰性元素削弱了清晰度，则在插入前裁剪帧。
 
-### Frame Naming
+### 帧命名
 
-- Use neutral timestamp-based names for raw candidate frames. Do not assign semantic names before inspecting the actual frame content.
-- Rename a frame semantically only after visually confirming what is fully visible in the image.
-- The semantic filename must describe the frame's actual visible content, not a guess based on subtitles, nearby narration, OCR text, or the intended paragraph topic.
-- If the frame is partially revealed, transitional, or ambiguous, keep searching and do not lock in a semantic name yet.
+- 对原始候选帧使用基于时间戳的中性命名。在检查实际帧内容之前，不要赋予语义名称。
+- 仅在通过视觉确认图像中完全可见的内容后，才对帧进行语义重命名。
+- 语义文件名必须描述帧的实际可见内容，而非基于字幕、附近旁白、OCR 文本或预期段落主题的猜测。
+- 如果帧是部分呈现的、过渡性的或存在歧义的，继续搜索，暂时不要确定语义名称。
 
-- use timestamped transcript segments as the main locator
-- inspect dense candidate frames around the relevant span before picking one
-- prefer the final readable state of a slide, chart, or build sequence
-- include every figure necessary for clarity
-- omit repetitive or low-information frames
-- crop or isolate relevant regions when full-frame readability is poor
-- when a slide reveals content progressively, capture the final readable state and add intermediate frames only when they teach a genuinely different step
-- prefer a sequence of necessary figures over one overloaded figure with unreadable labels
-- preserve readability of formulas and labels
+- 以带时间戳的转录片段作为主要定位依据
+- 在相关时间跨度周围检查密集的候选帧，然后再挑选
+- 优先获取幻灯片、图表或构建序列的最终可读状态
+- 包含所有对清晰度必要的插图
+- 省略重复或信息含量低的帧
+- 当整帧可读性较差时，裁剪或隔离相关区域
+- 当幻灯片逐步呈现内容时，捕获最终可读状态；仅当中间帧真正教授了不同的步骤时，才添加中间帧
+- 优先使用一系列必要的插图，而非塞满不可读标签的单一超载图片
+- 保持公式和标签的可读性
 
-## Figure Time Provenance
+## 图片时间来源
 
-Whenever the note references a specific video frame or crop derived from a frame, record its source time interval on the same page as a bottom footnote.
+每当笔记引用某个特定的视频帧或由其裁剪而来的图片时，在同一页底部以脚注形式记录其来源时间区间。
 
-- show a concrete interval such as `00:12:31--00:12:46`
-- use the transcript-aligned interval, not a vague chapter estimate
-- keep the figure and footnote on the same page
+- 显示具体区间，例如 `00:12:31--00:12:46`
+- 使用与转录对齐的区间，而非模糊的章节估算
+- 如果图片是从视频帧裁剪得到，脚注仍然应指向原始视频时间区间
+- 如果同一张图中的多个附近帧都来自同一转录区间，一个清晰脚注即可
+- 将图片和脚注保持在同一页；必要时优先使用更稳定的排版方式，避免浮动体把两者拆开
 
-## Visualization
+## 可视化
 
-Two acceptable routes:
+对于仅靠截图和正文仍然难以讲清的概念，应补充准确的可视化。
 
-- generate LaTeX-native visualizations with TikZ or PGFPlots
-- generate figures ahead of time with scripts and include them as images
+两种可接受的路线：
 
-For script-generated illustrations, prefer Python tools such as `matplotlib` and `seaborn` when they are the clearest way to produce an accurate teaching figure.
+- 使用 TikZ 或 PGFPlots 生成 LaTeX 原生可视化
+- 使用脚本提前生成图片，然后以插图形式引入
 
-When a visualization is generated externally rather than drawn natively in LaTeX:
+对于脚本生成的插图，当 `matplotlib` 和 `seaborn` 等 Python 工具是制作准确教学图片的最清晰方式时，请优先使用它们。
 
-- export the figure as `pdf` so it can be inserted into the `.tex` without rasterization loss
-- prefer vector output for plots, charts, and schematic illustrations
-- avoid `png` or `jpg` for script-generated teaching figures unless the content is inherently raster
+当可视化是外部生成而非在 LaTeX 中原生绘制时：
 
-Use visualizations for:
+- 将图片导出为 `pdf`，以便插入 `.tex` 时避免栅格化损失
+- 对于绘图、图表和示意性插图，优先使用矢量输出
+- 除非内容本质上是栅格的，否则避免对脚本生成的教学图片使用 `png` 或 `jpg`
 
-- process flows, pipelines, and architecture overviews
-- curves and charts such as scaling laws, training curves, benchmark results, and ablation comparisons
-- distributions, correlations, heatmaps, and other plots that explain data relationships
-- complex functions, surfaces, contour plots, and geometric intuition figures
-- tables or comparisons that become clearer when redrawn as charts
-- summary diagrams that compress a section's core mechanism or takeaway into one figure
+当源材料中的关系、结果或公式在重绘后比直接截图更清晰时，应优先重绘，而不是勉强保留信息密度过高的截图。
 
-Do not add decorative graphics that do not teach anything.
+可视化适用于以下场景：
 
-## Final Checklist
+- 流程、管道和架构概览
+- 曲线和图表，如缩放定律、训练曲线、基准测试结果和消融对比
+- 分布、相关性、热图和其他解释数据关系的图表
+- 复杂函数、曲面、等高线图和几何直观图
+- 重绘为图表后更清晰的表格或对比
+- 将某节的核心机制或要点压缩为一张图的总结示意图
 
-Before delivery, verify all of the following:
+不要添加没有任何教学意义的装饰性图形。
 
-- no important teaching content has been dropped, and no concrete but critical detail has been lost during condensation, restructuring, or summarization
-- the text and figures are aligned: each inserted frame supports the surrounding explanation, necessary crops have been applied, and the chosen frame shows the fullest relevant information rather than a transitional or incomplete state
-- the document is visually rich enough for teaching: check whether more high-information key frames should be added, and whether additional LaTeX-native or Python-script-generated illustrations would improve clarity
+## 最终检查清单
 
-## Delivery
+在交付前，请核实以下所有内容：
 
-Deliver all of the following:
+- 没有遗漏重要的教学内容，且在浓缩、重构或总结过程中没有丢失具体但关键的细节
+- 文本与图片保持一致：每张插入的帧都支撑周围的解释，必要的裁剪已应用，所选帧展示的是最完整的相关信息而非过渡或不完整状态
+- 文档在教学意义上足够视觉丰富：检查是否应添加更多高信息量的关键帧，以及额外的 LaTeX 原生或 Python 脚本生成的插图是否能提升清晰度
+- 默认使用 `xelatex` 或 `latexmk -xelatex` 这类 Unicode 中文引擎编译，不要把 `pdflatex` 当作默认编译路径
+- 最终输出文件名应根据视频实际内容命名为 5-10 个中文字符，避免使用泛化标题、平台原始长标题或无语义短名
 
-- the final `.tex`
-- the cover image referenced on the front page
-- any extracted or generated figure assets referenced by the document
-- the compiled PDF
-- transcript outputs (`.srt` and `.json`) when local speech-to-text was used
+## 交付
 
-When responding with final artifact locations:
+请交付以下所有内容：
 
-- always include the local filesystem paths for the generated outputs
-- if running inside WSL, also provide Windows File Explorer paths that can be opened directly, using `wslpath -w`
-- derive the Windows path with `wslpath -w <linux_path>` rather than hand-writing it
-- for example, convert `/root/tmp/example/output.pdf` into a path such as `\\wsl.localhost\Ubuntu-22.04\root\tmp\example\output.pdf`
-- prioritize the PDF and `.tex` paths, and include transcript or figure directories when they are part of the deliverable
+- 最终的 `.tex` 文件
+- 首页引用的封面图
+- 文档引用的任何提取或生成的图片素材
+- 编译后的 PDF
+- 使用本地语音转文字时，交付转录输出（`.srt` 和 `.json`）
 
-## Asset
+交付物命名规则：
 
-- `assets/notes-template.tex`: default LaTeX template to fill
+- PDF、`.tex` 以及主输出目录都应根据视频实际内容命名
+- 名称长度以 5-10 个中文字符为宜
+- 名称应概括视频核心主题，而不是简单照抄平台原始长标题
+- 不要使用 `note`、`output`、`final`、`课程笔记1` 这类弱语义名称
+
+在回复最终产物路径时：
+
+- 始终包含生成输出的本地文件系统路径
+- 优先提供位于 `VIDEO2NOTE_TMPDIR` 下对应任务目录中的 PDF 和 `.tex` 路径
+- 若转录结果、图片目录或中间素材属于交付物，则一并包含
+- 如果在 WSL 中运行，还请提供可直接在 Windows 文件资源管理器中打开的路径，使用 `wslpath -w` 转换
+- 使用 `wslpath -w <linux_path>` 推导 Windows 路径，而不是手写
+- 例如，将 `/tmp/video2note/task-001/output.pdf` 转换为 `\\wsl.localhost\Ubuntu-22.04\tmp\video2note\task-001\output.pdf`
+
+## 素材
+
+- `assets/notes-template.tex`：默认的 LaTeX 填充模板

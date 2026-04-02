@@ -62,7 +62,14 @@ def load_model(model_name: str, device: str, compute_type: str | None) -> tuple[
                 f"Whisper runtime failed for device={candidate_device} compute_type={candidate_compute}: {exc}",
                 file=sys.stderr,
             )
-    raise RuntimeError(f"Unable to load faster-whisper model {model_name}: {last_error}")
+    last_error_text = str(last_error)
+    if device == "cuda" and any(token in last_error_text for token in ("libcublas", "libcudnn", "nvrtc", "libcuda")):
+        raise RuntimeError(
+            "CUDA runtime is not ready for faster-whisper. Ensure the shared venv includes "
+            "nvidia-cublas-cu12, nvidia-cudnn-cu12==9.* and nvidia-cuda-nvrtc-cu12, then source env.sh and retry. "
+            f"Original error: {last_error_text}"
+        )
+    raise RuntimeError(f"Unable to load faster-whisper model {model_name}: {last_error_text}")
 
 
 def transcribe_with_optional_batching(
@@ -88,26 +95,39 @@ def transcribe_with_optional_batching(
 
     requested_batch_size = args.batch_size
     if requested_batch_size is None:
-        requested_batch_size = 32 if runtime_device == "cuda" else 1
+        requested_batch_size = 8 if runtime_device == "cuda" else 1
 
     if requested_batch_size <= 1:
-        return model.transcribe(str(args.input), **kwargs), 1
+        segments_iter, info = model.transcribe(str(args.input), **kwargs)
+        return (list(segments_iter), info), 1
 
     pipeline = BatchedInferencePipeline(model=model)
     batch_size = requested_batch_size
     last_error: Exception | None = None
-    while batch_size >= 1:
+    while batch_size > 1:
         try:
             segments_iter, info = pipeline.transcribe(str(args.input), batch_size=batch_size, **kwargs)
-            return (segments_iter, info), batch_size
+            return (list(segments_iter), info), batch_size
         except Exception as exc:  # noqa: BLE001
             last_error = exc
-            if runtime_device != "cuda" or batch_size == 1:
+            if runtime_device != "cuda":
                 break
-            print(f"Batched inference failed at batch_size={batch_size}: {exc}", file=sys.stderr)
-            batch_size //= 2
+            next_batch_size = max(1, batch_size // 2)
+            print(
+                f"Batched inference failed at batch_size={batch_size}: {exc}. Retrying with batch_size={next_batch_size}.",
+                file=sys.stderr,
+            )
+            if next_batch_size == batch_size:
+                break
+            batch_size = next_batch_size
 
-    raise RuntimeError(f"Unable to transcribe with batched inference: {last_error}")
+    try:
+        segments_iter, info = model.transcribe(str(args.input), **kwargs)
+        return (list(segments_iter), info), 1
+    except Exception as exc:  # noqa: BLE001
+        last_error = exc
+
+    raise RuntimeError(f"Unable to transcribe with faster-whisper after batch fallback: {last_error}")
 
 
 def main() -> int:
@@ -121,8 +141,7 @@ def main() -> int:
     stem = args.stem or args.input.stem
 
     model, runtime_device, runtime_compute = load_model(args.model, args.device, args.compute_type)
-    (segments_iter, info), effective_batch_size = transcribe_with_optional_batching(model, args, runtime_device)
-    segments = list(segments_iter)
+    (segments, info), effective_batch_size = transcribe_with_optional_batching(model, args, runtime_device)
 
     srt_path = output_dir / f"{stem}.srt"
     json_path = output_dir / f"{stem}.json"

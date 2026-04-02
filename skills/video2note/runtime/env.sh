@@ -2,17 +2,28 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="${VIDEO_NOTE_VENV:-$ROOT_DIR/.venv}"
+USER_HOME="${HOME:-${USERPROFILE:-}}"
+if [[ -z "$USER_HOME" ]]; then
+  echo "Neither HOME nor USERPROFILE is set" >&2
+  return 1 2>/dev/null || exit 1
+fi
+VIDEO2NOTE_HOME="${VIDEO2NOTE_HOME:-$USER_HOME/video2note}"
+VIDEO2NOTE_VENV="${VIDEO2NOTE_VENV:-$VIDEO2NOTE_HOME/.venv}"
+TMP_BASE="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}"
+VIDEO2NOTE_TMPDIR="${VIDEO2NOTE_TMPDIR:-$TMP_BASE/video2note}"
 
-if [[ ! -f "$VENV_DIR/bin/activate" ]]; then
-  echo "Runtime venv not found at $VENV_DIR. Run setup_runtime.sh first." >&2
+if [[ ! -f "$VIDEO2NOTE_VENV/bin/activate" ]]; then
+  echo "Runtime venv not found at $VIDEO2NOTE_VENV. Run setup_runtime.sh first." >&2
   return 1 2>/dev/null || exit 1
 fi
 
-# shellcheck disable=SC1091
-source "$VENV_DIR/bin/activate"
+mkdir -p "$VIDEO2NOTE_HOME"
+mkdir -p "$VIDEO2NOTE_TMPDIR"
 
-CUDA_LIBS="$("$VENV_DIR/bin/python" - <<'PY'
+# shellcheck disable=SC1091
+source "$VIDEO2NOTE_VENV/bin/activate"
+
+CUDA_LIBS="$("$VIDEO2NOTE_VENV/bin/python" - <<'PY'
 import os
 from pathlib import Path
 
@@ -30,4 +41,12 @@ if [[ -n "$CUDA_LIBS" ]]; then
   export LD_LIBRARY_PATH="$CUDA_LIBS${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
-export VIDEO_NOTE_RUNTIME_ROOT="$ROOT_DIR"
+export VIDEO2NOTE_HOME
+export VIDEO2NOTE_VENV
+export VIDEO2NOTE_TMPDIR
+export VIDEO2NOTE_RUNTIME_SCRIPTS_DIR="$ROOT_DIR"
+
+# Backward compatibility for previous variable names.
+export VIDEO2NOTE_RUNTIME_ROOT="$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR"
+export VIDEO_NOTE_VENV="$VIDEO2NOTE_VENV"
+export VIDEO_NOTE_RUNTIME_ROOT="$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR"

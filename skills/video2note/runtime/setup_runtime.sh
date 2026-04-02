@@ -2,7 +2,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="${VIDEO_NOTE_VENV:-$ROOT_DIR/.venv}"
+USER_HOME="${HOME:-${USERPROFILE:-}}"
+if [[ -z "$USER_HOME" ]]; then
+  echo "Neither HOME nor USERPROFILE is set" >&2
+  exit 1
+fi
+VIDEO2NOTE_HOME="${VIDEO2NOTE_HOME:-$USER_HOME/video2note}"
+VIDEO2NOTE_VENV="${VIDEO2NOTE_VENV:-$VIDEO2NOTE_HOME/.venv}"
+TMP_BASE="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}"
+VIDEO2NOTE_TMPDIR="${VIDEO2NOTE_TMPDIR:-$TMP_BASE/video2note}"
 PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.10}"
 PADDLE_MODE="${PADDLE_MODE:-cpu}"
 ASR_CUDA="${ASR_CUDA:-off}"
@@ -17,10 +25,16 @@ if [[ ! -x "$PYTHON_BIN" ]]; then
   exit 1
 fi
 
-echo "Creating runtime venv at $VENV_DIR using $PYTHON_BIN"
-uv venv --python "$PYTHON_BIN" "$VENV_DIR"
+mkdir -p "$VIDEO2NOTE_HOME"
+mkdir -p "$VIDEO2NOTE_TMPDIR"
 
-UV_PYTHON="$VENV_DIR/bin/python"
+echo "Using runtime home: $VIDEO2NOTE_HOME"
+echo "Using runtime venv: $VIDEO2NOTE_VENV"
+echo "Using task temp root: $VIDEO2NOTE_TMPDIR"
+echo "Creating runtime venv using $PYTHON_BIN"
+uv venv --python "$PYTHON_BIN" "$VIDEO2NOTE_VENV"
+
+UV_PYTHON="$VIDEO2NOTE_VENV/bin/python"
 
 echo "Installing core build tools"
 uv pip install --python "$UV_PYTHON" --upgrade pip setuptools wheel
@@ -52,7 +66,7 @@ uv pip install --python "$UV_PYTHON" paddleocr
 
 if [[ "$ASR_CUDA" == "pip-cu12" ]]; then
   echo "Installing CUDA 12 runtime wheels for faster-whisper"
-  uv pip install --python "$UV_PYTHON" nvidia-cublas-cu12 nvidia-cudnn-cu12==9.*
+  uv pip install --python "$UV_PYTHON" nvidia-cublas-cu12 nvidia-cudnn-cu12==9.* nvidia-cuda-nvrtc-cu12
 fi
 
 echo "Runtime setup complete"
