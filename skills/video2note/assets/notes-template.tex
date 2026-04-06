@@ -4,19 +4,22 @@
 \usepackage[fontset=fandol]{ctex}
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
-\usepackage[margin=2.5cm]{geometry}
+\usepackage[margin=2.3cm,headheight=15pt]{geometry}
 \usepackage[most]{tcolorbox}
 \usepackage{etoolbox}
 \usepackage{listings}
-\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
 \usepackage{booktabs}
 \usepackage{subcaption}
 \usepackage{float}
+\usepackage{fancyhdr}
 \usepackage{tikz}
 \IfFileExists{pgfplots.sty}{
     \usepackage{pgfplots}
     \pgfplotsset{compat=1.18}
 }{}
+\urlstyle{same}
 
 % Highlight boxes
 \newtcolorbox{knowledgebox}[1]{
@@ -35,20 +38,55 @@
     coltitle=white, fonttitle=\bfseries, title=#1, sharp corners
 }
 
-% Listings
-\lstset{
+% Code listing colors and style
+\colorlet{codebg}{black!2}
+\colorlet{codeframe}{black!20}
+\colorlet{codekeyword}{blue!70!black}
+\colorlet{codecomment}{green!35!black}
+\colorlet{codestring}{red!55!black}
+\colorlet{codenumber}{black!45}
+
+\lstdefinestyle{video2notecode}{
     language=Python,
     basicstyle=\ttfamily\small,
-    keywordstyle=\color{blue},
-    stringstyle=\color{red!60!black},
-    commentstyle=\color{green!60!black},
+    keywordstyle=\bfseries\color{codekeyword},
+    stringstyle=\color{codestring},
+    commentstyle=\itshape\color{codecomment},
+    backgroundcolor=\color{codebg},
     breaklines=true,
+    breakatwhitespace=false,
+    postbreak=\mbox{\textcolor{codenumber}{\tiny$\hookrightarrow$}\space},
     frame=single,
+    rulecolor=\color{codeframe},
+    framerule=0.6pt,
+    framesep=6pt,
     numbers=left,
-    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numberstyle=\scriptsize\color{codenumber},
+    numbersep=10pt,
+    xleftmargin=1.6em,
+    framexleftmargin=1.2em,
     captionpos=b,
+    showstringspaces=false,
+    keepspaces=true,
+    columns=fullflexible,
+    tabsize=4,
+    aboveskip=1.0em,
+    belowskip=1.0em,
     extendedchars=false
 }
+\lstset{style=video2notecode}
+
+% Header and footer for main content
+\fancypagestyle{video2note}{
+    \fancyhf{}
+    \fancyhead[L]{\small \notetitle}
+    \fancyhead[R]{\small \nouppercase{\leftmark}}
+    \fancyfoot[C]{\small \thepage}
+    \renewcommand{\headrulewidth}{0.4pt}
+    \renewcommand{\footrulewidth}{0pt}
+}
+\renewcommand{\sectionmark}[1]{\markboth{\thesection\ #1}{}}
 
 % Front-page metadata
 % 笔记作者信息：用户姓名 & AI助手名称（如 Kimi、GPT-4、Claude 等）
@@ -62,26 +100,28 @@
 \newcommand{\videocoverpath}{}
 
 \begin{document}
+\pagenumbering{gobble}
 
 \begin{titlepage}
 \centering
+\vspace*{0.04\textheight}
 {\Large 课程笔记\par}
-\vspace{1.2cm}
+\vspace{0.9cm}
 {\huge\bfseries \notetitle\par}
-\vspace{0.8cm}
+\vspace{0.7cm}
 {\large \noteauthors\par}
-\vspace{0.3cm}
+\vspace{0.25cm}
 {\large \notedate\par}
-\vspace{1.2cm}
+\vspace{0.9cm}
 
 \ifdefempty{\videocoverpath}{
 {\small 请在生成笔记时填入视频封面图的本地路径。\par}
 }{
-\includegraphics[width=0.82\textwidth,height=0.45\textheight,keepaspectratio]{\videocoverpath}\par
+\includegraphics[width=0.84\textwidth,height=0.42\textheight,keepaspectratio]{\videocoverpath}\par
 }
 
-\vfill
-\begin{tcolorbox}[width=0.9\textwidth, colback=black!2!white, colframe=black!60, sharp corners]
+\vspace{0.9cm}
+\begin{tcolorbox}[width=0.92\textwidth, colback=black!2!white, colframe=black!60, sharp corners]
 \textbf{视频作者/频道}：\videochannel\par
 \textbf{发布日期}：\videopublishdate\par
 \textbf{视频时长}：\videoduration\par
@@ -92,10 +132,13 @@
 \href{\videourl}{\nolinkurl{\videourl}}
 }
 \end{tcolorbox}
+\vfill
 \end{titlepage}
 
 \tableofcontents
-\newpage
+\clearpage
+\pagenumbering{arabic}
+\pagestyle{video2note}
 
 %% --- 正文内容开始 --- %%
 
@@ -112,6 +155,7 @@
 % \caption{... \protect\footnotemark}
 % \end{figure}
 % \footnotetext{视频画面时间区间：00:12:31--00:12:46。若为裁剪图，时间区间仍对应原视频画面。}
+% When using lstlisting, keep the snippet focused and provide a descriptive caption.
 % End the document with a final section such as:
 % \section{总结与延伸}
 % covering the speaker's closing discussion and your own synthesis.
