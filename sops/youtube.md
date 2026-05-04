@@ -252,6 +252,46 @@ python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" \
 
 若这三类条件都不满足，不应进入写作阶段。
 
+## 统一内容包收口
+
+在进入写作阶段前，应整理：
+
+```text
+$TASK_DIR/metadata/source.json
+```
+
+建议至少包含：
+
+```json
+{
+  "source_kind": "video",
+  "title": "...",
+  "author": "...",
+  "publish_date": "...",
+  "source_url": "...",
+  "hero_asset_path": "cover/cover.webp",
+  "duration": 0,
+  "text_artifacts": [
+    "subtitles/manual.srt",
+    "subtitles/auto.srt",
+    "subtitles/transcript.srt",
+    "subtitles/transcript.json"
+  ],
+  "visual_artifacts": [
+    "cover/cover.webp",
+    "frames/..."
+  ],
+  "locator_type": "time_range"
+}
+```
+
+规则：
+
+- YouTube 视频最终必须按 `source_kind=video` 收口，而不是让写作层直接耦合平台采集细节
+- `text_artifacts` 应按实际可用素材填写，人工字幕、自动字幕、ASR 结果不要求同时都存在
+- `visual_artifacts` 可包含封面图和最终选用的关键帧
+- 写作层优先消费该内容包，而不是回头直接读取平台探测命令的原始输出
+
 ## 输出命名与编译
 
 - 主输出目录、`.tex` 和 PDF 应根据视频核心内容命名为 5-10 个中文字符的语义化短名

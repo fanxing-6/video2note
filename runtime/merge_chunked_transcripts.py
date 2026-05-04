@@ -22,6 +22,23 @@ def format_ts(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
+def shift_segment(segment: dict, offset: float) -> dict:
+    shifted = dict(segment)
+    shifted["start"] = (segment.get("start") or 0.0) + offset
+    shifted["end"] = (segment.get("end") or 0.0) + offset
+
+    words = []
+    for word in segment.get("words") or []:
+        shifted_word = dict(word)
+        if shifted_word.get("start") is not None:
+            shifted_word["start"] += offset
+        if shifted_word.get("end") is not None:
+            shifted_word["end"] += offset
+        words.append(shifted_word)
+    shifted["words"] = words
+    return shifted
+
+
 def main() -> int:
     args = parse_args()
     chunk_dir = args.chunk_dir
@@ -40,6 +57,8 @@ def main() -> int:
     runtime_compute_type = None
     total_duration = 0.0
 
+    chunk_offset = 0.0
+
     for path in json_files:
         with path.open("r", encoding="utf-8") as fh:
             payload = json.load(fh)
@@ -50,8 +69,10 @@ def main() -> int:
             runtime_device = payload.get("runtime_device")
             runtime_compute_type = payload.get("runtime_compute_type")
         for segment in payload.get("segments", []):
-            merged_segments.append(segment)
-        total_duration = max(total_duration, payload.get("duration", 0.0) or 0.0)
+            merged_segments.append(shift_segment(segment, chunk_offset))
+        chunk_duration = payload.get("duration", 0.0) or 0.0
+        chunk_offset += chunk_duration
+        total_duration = max(total_duration, chunk_offset)
 
     merged_segments.sort(key=lambda item: (item.get("start", 0.0), item.get("id", 0)))
     for index, segment in enumerate(merged_segments):

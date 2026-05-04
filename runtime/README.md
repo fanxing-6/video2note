@@ -11,13 +11,13 @@
 
 - 任何依赖模型的步骤都应默认优先使用 GPU。
 - Whisper 转录在存在可用 GPU 时应在 `--device cuda` 上运行。
-- “较大的 GPU 批大小优先”表示探索顺序，而不是固定默认值；不同显存、模型和音频长度下稳定值不同。
+- “较大的 GPU 批大小优先”表示探索顺序，而不是固定默认值；不同显存、模型和视频音轨长度下稳定值不同。
 - 共享运行时只有在 CUDA 依赖完整时，GPU 主路径才算可用。若缺少 `libcublas`、`libcudnn` 或 `nvrtc` 相关库，应先补齐运行时依赖。
-- 对 `large-v3` 的真实长音频，默认从更保守的 GPU `batch-size` 起步，再逐步上探；仅在 GPU 不可用或明确出现故障时，才回退到 CPU。
+- 对 `large-v3` 的真实长视频音轨，默认从更保守的 GPU `batch-size` 起步，再逐步上探；仅在 GPU 不可用或明确出现故障时，才回退到 CPU。
 
 ## 目录职责
 
-- `skills/video2note/runtime/`：仅表示运行时脚本源码目录
+- `runtime/`：仅表示运行时脚本源码目录
 - `VIDEO2NOTE_HOME`：唯一真实共享运行时目录
 - `VIDEO2NOTE_TMPDIR`：任务产出根目录
 
@@ -73,12 +73,14 @@ source <runtime-scripts-dir>/env.sh
 
 辅助脚本：
 
-- `transcribe_with_faster_whisper.py`
-- `run_ppocrv5.py`
-- `merge_chunked_transcripts.py`
-- `resolve_dlpanda.py`
+- `transcribe_with_faster_whisper.py`：用于转录从视频提取出的音轨
+- `merge_chunked_transcripts.py`：用于合并长视频音轨的分块转录结果
+- `run_ppocrv5.py`：用于识别视频帧、幻灯片截图或裁剪区域中的文字
+- `resolve_dlpanda.py`：用于 TikTok / Douyin 视频路径
 
 使用示例：
+
+### 视频转录与视频帧 OCR
 
 ```bash
 source <runtime-scripts-dir>/env.sh

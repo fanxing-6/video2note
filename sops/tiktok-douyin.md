@@ -178,6 +178,44 @@ TikTok / Douyin 的后续抽帧、OCR、写作都必须以本地 MP4 为基础�
 
 若没有本地 MP4，不应进入写作阶段。
 
+## 统一内容包收口
+
+在进入写作阶段前，应整理：
+
+```text
+$TASK_DIR/metadata/source.json
+```
+
+建议至少包含：
+
+```json
+{
+  "source_kind": "video",
+  "title": "...",
+  "author": "...",
+  "publish_date": "...",
+  "source_url": "...",
+  "hero_asset_path": "",
+  "duration": 0,
+  "text_artifacts": [
+    "subtitles/input.srt",
+    "subtitles/input.json"
+  ],
+  "visual_artifacts": [
+    "frames/..."
+  ],
+  "locator_type": "time_range"
+}
+```
+
+规则：
+
+- TikTok / Douyin 视频最终必须按 `source_kind=video` 收口，而不是让写作层直接耦合 dlpanda 的解析细节
+- `hero_asset_path` 可为空；若后续存在高价值封面或头图，可再写入
+- `text_artifacts` 应按实际可用 ASR 结果填写
+- `visual_artifacts` 可包含最终选用的关键帧
+- 写作层优先消费该内容包，而不是回头直接读取解析 JSON 或 HTML
+
 ## 输出命名与编译
 
 - 主输出目录、`.tex` 和 PDF 应根据视频核心内容命名为 5-10 个中文字符的语义化短名

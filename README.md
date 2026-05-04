@@ -1,38 +1,49 @@
-# video2note
+# video2note-skill
 
-如果你是大语言模型（如 GPT、Claude 等），请阅读 [`skills/video2note/SKILL.md`](skills/video2note/SKILL.md)。
+如果你是大语言模型（如 GPT、Claude 等），请阅读 [`SKILL.md`](SKILL.md)。
 
-将 Bilibili、YouTube、TikTok 或 Douyin 上的讲座、直播回放、教程、技术分享等长视频，整理为结构化的中文 LaTeX 笔记，并最终渲染为 PDF。
+将 Bilibili、YouTube、TikTok 或 Douyin 等视频内容整理为结构化的中文 LaTeX 笔记，并最终渲染为 PDF。
 
-本 Skill 面向长视频笔记生产，默认工作流包括：
+仓库名和本地项目目录名为 `video2note-skill`；Skill 调用名仍保持 `video2note`。当前仓库采用根级 Skill 结构，`SKILL.md`、`agents/`、`assets/`、`runtime/` 和 `sops/` 都直接位于仓库根目录。
 
-- 使用 `faster-whisper` + `whisper-large-v3` 进行语音转文字
-- 使用 `PaddleOCR` + `PP-OCRv5` 进行画面文字识别（OCR）
-- 从视频中抽取关键帧作为插图
+默认工作流包括：
+
+- 使用 `faster-whisper` + `whisper-large-v3` 提取语音内容
+- 使用 `PaddleOCR` + `PP-OCRv5` 提取图片中的文字内容（OCR）
+- 当视频包含可用视觉素材时，提取封面、关键帧或重绘图作为插图
 - 输出可编译的 LaTeX 文稿及最终 PDF
 
 ## 仓库结构
 
 ```text
-skills/
-  video2note/
-    SKILL.md
-    agents/openai.yaml
-    assets/notes-template.tex
-    runtime/
-    sops/
+video2note-skill/
+  SKILL.md
+  agents/
+    openai.yaml
+  assets/
+    notes-template.tex
+  runtime/
+  sops/
+    youtube.md
+    bilibili.md
+    tiktok-douyin.md
 ```
+
+当前输入路由：
+
+- YouTube：走 `sops/youtube.md`
+- Bilibili：走 `sops/bilibili.md`
+- TikTok / Douyin：走 `sops/tiktok-douyin.md`
 
 ## 安装
 
 本仓库只提供 Skill 内容与运行时脚本源码，不绑定任何特定工具、安装器或平台私有目录。
 
-你可以将 `skills/video2note/` 按所用工具的约定安装到对应技能目录中；
-也可以直接读取其中的文档与脚本源码，自行集成到任意支持的工作流中。
+你可以将当前仓库根目录按所用工具的约定安装到对应技能目录中；也可以直接读取其中的文档与脚本源码，自行集成到任意支持的工作流中。
 
 ## 运行时环境
 
-`skills/video2note/runtime/` 只是**运行时脚本源码目录**，不是实际运行环境目录。
+`runtime/` 只是**运行时脚本源码目录**，不是实际运行环境目录。
 
 唯一真实运行时应位于用户目录：
 
@@ -58,14 +69,14 @@ skills/
 
 ## 说明
 
-- 本仓库刻意排除了本地缓存、虚拟环境、转写结果、下载的视频文件及模型权重，不会将上述内容提交到 GitHub。
+- 本仓库刻意排除了本地缓存、虚拟环境、转写结果、下载的媒体文件、提取图片及模型权重，不会将上述内容提交到 GitHub。
 - 默认本地工作流不依赖任何 API Key。
 - 共享运行时环境默认位于 `VIDEO2NOTE_HOME`，不会跟随 Skill 安装目录重复创建。
-- `skills/video2note/runtime/` 只是脚本源码位置，不应被描述为第二套运行时。
+- `runtime/` 只是脚本源码位置，不应被描述为第二套运行时。
 - 所有任务产物默认应写入 `VIDEO2NOTE_TMPDIR` 下的独立子目录，而不是写回 Skill 安装目录。
 - 对于 Bilibili，高分辨率视频流可能需要浏览器 Cookie 才能下载。
-- 对于 TikTok / Douyin，默认通过 `dlpanda` 解析 HTML 并提取直链媒体 URL，不依赖登录 Cookie。
+- 对于 TikTok / Douyin，当前视频路径默认通过 `dlpanda` 解析 HTML 并提取直链媒体 URL，不依赖登录 Cookie。
 - GPU ASR 只有在共享运行时已补齐 CUDA 依赖时才算可用；若出现 `libcublas` / `libcudnn` / `nvrtc` 缺失，应先补共享 venv。
-- 对 `large-v3` 的真实长音频，建议从更保守的 GPU `batch-size` 起步，再按显存逐步上探，而不是默认假设 `32` 稳定可用。
+- 对 `large-v3` 的真实长视频音轨，建议从更保守的 GPU `batch-size` 起步，再按显存逐步上探，而不是默认假设 `32` 稳定可用。
 - 最终 PDF 默认应使用 `xelatex` 或 `latexmk -xelatex` 编译，而不是把 `pdflatex` 当作默认路径。
-- 主输出目录、`.tex` 和 PDF 应根据视频内容命名为 5-10 个中文字符的语义化短名。
+- 主输出目录、`.tex` 和 PDF 应根据视频主题命名为 5-10 个中文字符的语义化短名。

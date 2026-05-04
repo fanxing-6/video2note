@@ -15,6 +15,7 @@
 \usepackage{float}
 \usepackage{fancyhdr}
 \usepackage{tikz}
+\usetikzlibrary{arrows.meta,backgrounds,calc,fit,positioning,shapes.geometric}
 \IfFileExists{pgfplots.sty}{
     \usepackage{pgfplots}
     \pgfplotsset{compat=1.18}
@@ -36,6 +37,40 @@
 \newtcolorbox{warningbox}[1]{
     enhanced, colback=red!5!white, colframe=red!75!black, colbacktitle=red!75!black,
     coltitle=white, fonttitle=\bfseries, title=#1, sharp corners
+}
+
+% Engineering whiteboard-style TikZ defaults.
+\tikzset{
+    flowstep/.style={
+        rectangle, draw=blue!55!black, fill=blue!6!white,
+        line width=0.6pt, align=center, rounded corners=1.5pt,
+        minimum height=9mm, minimum width=24mm, inner xsep=7pt, inner ysep=5pt
+    },
+    decision/.style={
+        diamond, draw=yellow!55!black, fill=yellow!12!white,
+        line width=0.6pt, align=center, aspect=2.2,
+        minimum height=11mm, inner xsep=5pt, inner ysep=3pt
+    },
+    artifact/.style={
+        rectangle, draw=black!45, fill=black!4!white,
+        line width=0.6pt, align=center, rounded corners=3pt,
+        minimum height=8mm, minimum width=22mm, inner xsep=7pt, inner ysep=5pt
+    },
+    risknode/.style={
+        rectangle, draw=red!60!black, fill=red!6!white,
+        line width=0.6pt, align=center, rounded corners=1.5pt,
+        minimum height=9mm, minimum width=24mm, inner xsep=7pt, inner ysep=5pt
+    },
+    flowarrow/.style={
+        -{Stealth[length=2.4mm,width=1.7mm]}, draw=black!70, line width=0.65pt
+    },
+    feedbackarrow/.style={
+        -{Stealth[length=2.4mm,width=1.7mm]}, draw=black!55, line width=0.6pt, dashed
+    },
+    layerbox/.style={
+        draw=black!28, fill=black!2!white, line width=0.5pt,
+        rounded corners=2pt, inner xsep=8pt, inner ysep=8pt
+    }
 }
 
 % Code listing colors and style
@@ -90,14 +125,22 @@
 
 % Front-page metadata
 % 笔记作者信息：用户姓名 & AI助手名称（如 Kimi、GPT-4、Claude 等）
-\newcommand{\notetitle}{课程笔记：[在此填写课程主题]}
+\newcommand{\notetype}{课程笔记}
+\newcommand{\notetitle}{课程笔记：[在此填写主题]}
 \newcommand{\noteauthors}{繁星 \& AI}
 \newcommand{\notedate}{\today}
-\newcommand{\videochannel}{[在此填写频道或作者]}
-\newcommand{\videopublishdate}{[在此填写发布日期]}
-\newcommand{\videoduration}{[在此填写视频时长]}
-\newcommand{\videourl}{}
-\newcommand{\videocoverpath}{}
+\newcommand{\sourceauthor}{[在此填写作者、账号或频道]}
+\newcommand{\sourcepublishdate}{[在此填写发布日期]}
+\newcommand{\sourcelength}{[在此填写视频时长]}
+\newcommand{\sourceurl}{}
+\newcommand{\sourcecoverpath}{}
+
+% Backward compatibility for existing video-oriented templates.
+\newcommand{\videochannel}{\sourceauthor}
+\newcommand{\videopublishdate}{\sourcepublishdate}
+\newcommand{\videoduration}{\sourcelength}
+\newcommand{\videourl}{\sourceurl}
+\newcommand{\videocoverpath}{\sourcecoverpath}
 
 \begin{document}
 \pagenumbering{gobble}
@@ -105,7 +148,7 @@
 \begin{titlepage}
 \centering
 \vspace*{0.04\textheight}
-{\Large 课程笔记\par}
+{\Large \notetype\par}
 \vspace{0.9cm}
 {\huge\bfseries \notetitle\par}
 \vspace{0.7cm}
@@ -114,22 +157,22 @@
 {\large \notedate\par}
 \vspace{0.9cm}
 
-\ifdefempty{\videocoverpath}{
-{\small 请在生成笔记时填入视频封面图的本地路径。\par}
+\ifdefempty{\sourcecoverpath}{
+{\small 如视频存在高价值封面或头图，请在生成笔记时填入其本地路径。\par}
 }{
-\includegraphics[width=0.84\textwidth,height=0.42\textheight,keepaspectratio]{\videocoverpath}\par
+\includegraphics[width=0.84\textwidth,height=0.42\textheight,keepaspectratio]{\sourcecoverpath}\par
 }
 
 \vspace{0.9cm}
 \begin{tcolorbox}[width=0.92\textwidth, colback=black!2!white, colframe=black!60, sharp corners]
-\textbf{视频作者/频道}：\videochannel\par
-\textbf{发布日期}：\videopublishdate\par
-\textbf{视频时长}：\videoduration\par
-\textbf{视频链接}：
-\ifdefempty{\videourl}{
+\textbf{来源作者/账号}：\sourceauthor\par
+\textbf{发布日期}：\sourcepublishdate\par
+\textbf{视频时长}：\sourcelength\par
+\textbf{来源链接}：
+\ifdefempty{\sourceurl}{
 未填写
 }{
-\href{\videourl}{\nolinkurl{\videourl}}
+\href{\sourceurl}{\nolinkurl{\sourceurl}}
 }
 \end{tcolorbox}
 \vfill
@@ -143,12 +186,12 @@
 %% --- 正文内容开始 --- %%
 
 % Replace this block with the generated notes.
-% Fill the metadata block above, especially \videocoverpath, so the front page
-% contains the original video cover image.
+% Fill the metadata block above, especially \sourcecoverpath, so the front page
+% contains the most valuable available video cover or leading visual.
 % Keep images outside knowledgebox/importantbox/warningbox.
 % For any figure that comes from a video frame or a crop of a frame,
 % include the source time interval as a bottom footnote on the same page.
-% A stable pattern is:
+% A stable pattern for video-frame figures is:
 % \begin{figure}[H]
 % \centering
 % \includegraphics[width=\textwidth]{...}
@@ -158,7 +201,7 @@
 % When using lstlisting, keep the snippet focused and provide a descriptive caption.
 % End the document with a final section such as:
 % \section{总结与延伸}
-% covering the speaker's closing discussion and your own synthesis.
+% covering the source's closing discussion and your own synthesis.
 
 %% --- 正文内容结束 --- %%
 

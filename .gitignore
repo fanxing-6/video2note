@@ -33,5 +33,4 @@ models/
 *.jpeg
 *.png
 
-!skills/video-note-renderer/assets/notes-template.tex
-
+!assets/notes-template.tex
