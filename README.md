@@ -2,11 +2,9 @@
 
 ## 示例输出
 
-以下两页示例来自本地视频 `37889117361-1-192.mp4` 的处理结果，内容主题是 DeepSeek V4 中的 CSA / HCA 压缩注意力机制。第一页展示基于视频讲解重绘的 LaTeX TikZ 流程图，第二页展示实现路径与核心代码摘录。
+下图示例来自本地视频 `37889117361-1-192.mp4` 的处理结果，内容主题是 DeepSeek V4 中的 CSA / HCA 压缩注意力机制。左侧是真实视频关键帧，右侧是生成后的 PDF 笔记页面，用来直观看到从视频素材到结构化 PDF 的转换效果。
 
-![包含 LaTeX TikZ 流程图的压缩注意力机制示例页](assets/readme-examples/deepseekv4-page-tikz.png)
-
-![压缩注意力实现路径与核心代码示例页](assets/readme-examples/deepseekv4-page-implementation.png)
+![视频截图转换为 PDF 笔记的示例流程](assets/readme-examples/video-to-pdf-overview.png)
 
 如果你是大语言模型（如 GPT、Claude 等），请阅读 [`SKILL.md`](SKILL.md)。
 
