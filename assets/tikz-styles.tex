@@ -1,0 +1,39 @@
+% Shared engineering whiteboard-style TikZ defaults for video2note diagrams.
+\usetikzlibrary{arrows.meta,backgrounds,calc,fit,positioning,shapes.geometric}
+\IfFileExists{pgfplots.sty}{
+    \usepackage{pgfplots}
+    \pgfplotsset{compat=1.18}
+}{}
+
+\tikzset{
+    flowstep/.style={
+        rectangle, draw=blue!55!black, fill=blue!6!white,
+        line width=0.6pt, align=center, rounded corners=1.5pt,
+        minimum height=9mm, minimum width=24mm, inner xsep=7pt, inner ysep=5pt
+    },
+    decision/.style={
+        diamond, draw=yellow!55!black, fill=yellow!12!white,
+        line width=0.6pt, align=center, aspect=2.2,
+        minimum height=11mm, inner xsep=5pt, inner ysep=3pt
+    },
+    artifact/.style={
+        rectangle, draw=black!45, fill=black!4!white,
+        line width=0.6pt, align=center, rounded corners=3pt,
+        minimum height=8mm, minimum width=22mm, inner xsep=7pt, inner ysep=5pt
+    },
+    risknode/.style={
+        rectangle, draw=red!60!black, fill=red!6!white,
+        line width=0.6pt, align=center, rounded corners=1.5pt,
+        minimum height=9mm, minimum width=24mm, inner xsep=7pt, inner ysep=5pt
+    },
+    flowarrow/.style={
+        -{Stealth[length=2.4mm,width=1.7mm]}, draw=black!70, line width=0.65pt
+    },
+    feedbackarrow/.style={
+        -{Stealth[length=2.4mm,width=1.7mm]}, draw=black!55, line width=0.6pt, dashed
+    },
+    layerbox/.style={
+        draw=black!28, fill=black!2!white, line width=0.5pt,
+        rounded corners=2pt, inner xsep=8pt, inner ysep=8pt
+    }
+}

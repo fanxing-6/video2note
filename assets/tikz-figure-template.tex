@@ -1,0 +1,32 @@
+\documentclass[tikz,border=6pt]{standalone}
+
+\usepackage[fontset=fandol]{ctex}
+\usepackage{xcolor}
+\usepackage{tikz}
+\IfFileExists{tikz-styles.tex}{
+    \input{tikz-styles.tex}
+}{
+    \input{assets/tikz-styles.tex}
+}
+
+\begin{document}
+\begin{tikzpicture}[node distance=12mm and 14mm]
+% Replace this example with one focused diagram.
+% Keep 4--8 primary nodes; split larger diagrams before compiling.
+\node[artifact] (input) {输入\\素材};
+\node[flowstep, right=of input] (process) {抽象\\流程};
+\node[decision, right=of process] (decision) {需要\\分支?};
+\node[flowstep, right=of decision] (output) {输出\\图稿};
+\node[risknode, below=of decision] (risk) {失败\\回退};
+
+\draw[flowarrow] (input) -- (process);
+\draw[flowarrow] (process) -- (decision);
+\draw[flowarrow] (decision) -- node[above, font=\scriptsize] {是} (output);
+\draw[feedbackarrow] (decision) -- node[right, font=\scriptsize] {否} (risk);
+\draw[feedbackarrow] (risk.west) to[out=180,in=-90] (process.south);
+
+\begin{scope}[on background layer]
+\node[layerbox, fit=(input) (process) (decision) (output), label={[font=\small]above:独立图稿}] {};
+\end{scope}
+\end{tikzpicture}
+\end{document}

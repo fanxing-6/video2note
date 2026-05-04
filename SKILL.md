@@ -360,11 +360,54 @@ OCR 特别适用于以下场景：
 - 图形只起装饰作用，不能降低理解成本
 
 每张 TikZ 图都应遵循固定讲解顺序：图前先用正文说明它要解决的理解问题；图中只放短标签和必要连接；图后解释读图方式、关键路径和读者应带走的结论。
-TikZ 图必须放在普通 `figure` 环境中，不要放入 `importantbox`、`knowledgebox` 或 `warningbox`。
+流程图、架构图、机制图和阶段演进图不得把原始 `tikzpicture` 直接写进最终主 `.tex` 文档；应先作为独立图稿编译为 PDF，再在最终文档的普通 `figure` 环境中用 `\includegraphics` 插入。
+插入后的图不要放入 `importantbox`、`knowledgebox` 或 `warningbox`。
 若 TikZ 图是基于视频片段抽象重绘的，应在 caption 或附近脚注标注来源时间区间；若综合多段内容，应写明综合自哪些时间区间。
 
-默认使用模板中的工程白板式 TikZ 样式：`flowstep` 表示流程阶段，`decision` 表示判断或取舍，`artifact` 表示输入、输出、文档、模型或数据，`risknode` 表示风险、失败或回退条件，`flowarrow` 表示主流程箭头，`feedbackarrow` 表示反馈、迭代或回退路径，`layerbox` 表示模块层、阶段组或系统边界。
+默认使用 `assets/tikz-styles.tex` 中的工程白板式 TikZ 样式；创建独立图稿时可从 `assets/tikz-figure-template.tex` 复制起步。`flowstep` 表示流程阶段，`decision` 表示判断或取舍，`artifact` 表示输入、输出、文档、模型或数据，`risknode` 表示风险、失败或回退条件，`flowarrow` 表示主流程箭头，`feedbackarrow` 表示反馈、迭代或回退路径，`layerbox` 表示模块层、阶段组或系统边界。
 图形应保持低饱和、细边框、无阴影、无渐变；每张图建议控制在 4--8 个主要节点，超过时拆成总览图和局部图。
+
+### 独立 TikZ 图稿流程
+
+对每一张流程图、架构图、机制图或阶段演进图，应在任务目录下创建独立源码与产物目录，例如：
+
+```text
+$TASK_DIR/figures/tikz-src/csa-hca-flow.tex
+$TASK_DIR/figures/tikz-pdf/csa-hca-flow.pdf
+```
+
+独立图稿应使用 `standalone` 类编译。创建图稿目录时，把技能目录中的 `assets/tikz-styles.tex` 复制到 `figures/tikz-src/`，让每张图稿在自己的源码目录中解析统一样式，避免最终笔记目录结构影响图稿编译。编译命令示例：
+
+```bash
+SKILL_DIR="$(cd "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/.." && pwd)"
+mkdir -p "$TASK_DIR/figures/tikz-src" "$TASK_DIR/figures/tikz-pdf"
+cp "$SKILL_DIR/assets/tikz-styles.tex" "$TASK_DIR/figures/tikz-src/tikz-styles.tex"
+cd "$TASK_DIR/figures/tikz-src"
+latexmk -xelatex -interaction=nonstopmode -halt-on-error \
+  -outdir="$TASK_DIR/figures/tikz-pdf" \
+  csa-hca-flow.tex
+```
+
+图稿 PDF 通过视觉复核后，再在最终主 `.tex` 中插入该 PDF：
+
+```tex
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/tikz-pdf/csa-hca-flow.pdf}
+\caption{CSA 与 HCA 的压缩注意力流程\protect\footnotemark}
+\end{figure}
+\footnotetext{抽象自视频 03:41--07:14 对 CSA、HCA 结构差异的讲解。}
+```
+
+主文档不再承担流程图布局求解职责，只负责把已验证的图稿 PDF 与正文、caption 和脚注组合排版。若最终页面中图稿过大、过小或与 caption / 脚注分页不稳定，应优先调整 `\includegraphics` 宽度、图稿边距或正文位置；若图稿内部有问题，则回到独立 TikZ 源码修复并重新编译。
+
+### TikZ 图稿 PDF 视觉复核
+
+只要生成 TikZ 或 PGFPlots 图稿，独立图稿 PDF 编译成功之后必须先对该图稿做视觉复核；最终主 PDF 编译成功之后，还必须复核图稿所在页面的组合效果。不能只依赖 LaTeX 编译日志或源码检查来判断图形可交付。复核时优先直接查看 PDF 页面；如果当前环境不便直接查看 PDF，则将图稿 PDF 或最终主 PDF 的相关页面渲染为 PNG 后检查，例如使用 `pdftoppm -png -r 150 figure.pdf figure-page` 或 `pdftoppm -png -r 150 -f <page> -l <page> output.pdf tikz-page`。
+
+复核重点包括：节点、标签、箭头、分组框、caption 和脚注是否互相重叠；节点文字是否溢出或小到不可读；箭头是否错误穿过关键文字或造成方向歧义；`layerbox` 是否遮挡主节点；图是否超出页边距或被缩放到失去阅读价值；颜色、线宽和节点样式是否仍符合工程白板式的低饱和、细边框、无阴影、无渐变要求。
+
+发现图稿内部问题时应修改独立 TikZ 源码并重新编译，而不是对渲染后的位图做补丁，也不是在最终主文档里临时覆盖样式。常用修复手段包括调整 `node distance`、改用 `above/below left/right`、缩短节点标签、增加换行、拆分过密图、用 `bend left/right` 或 `out/in` 调整箭头路径、移动 `layerbox` 范围、控制 standalone 图稿边距，以及把超过 8 个主要节点的图拆成总览图和局部图。若复核后仍存在明显重叠、文字溢出、不可读或风格失控的问题，该 PDF 不应交付。
 
 可视化适用于以下场景：
 
@@ -384,6 +427,7 @@ TikZ 图必须放在普通 `figure` 环境中，不要放入 `importantbox`、`k
 - 没有遗漏重要的教学内容，且在浓缩、重构或总结过程中没有丢失具体但关键的细节
 - 文本与图片保持一致：每张插入的视觉素材都支撑周围的解释；若该素材来自视频帧，应确认裁剪和选帧都已足够准确
 - 文档在教学意义上足够视觉丰富：检查是否应添加更多高信息量的关键帧、配图、重绘图表或 LaTeX / Python 生成插图，以提升清晰度
+- 若文档包含 TikZ 或 PGFPlots 图稿，必须确认每张图都已先独立编译为 PDF 并完成图稿级视觉复核；最终主 PDF 编译后还要查看相关页面或渲染页图，确认图稿插入后没有裁切、过度缩放、caption / 脚注错位、重叠、遮挡、溢出、不可读、箭头歧义和样式失控问题
 - 默认使用 `xelatex` 或 `latexmk -xelatex` 这类 Unicode 中文引擎编译，不要把 `pdflatex` 当作默认编译路径
 - 最终输出文件名应根据源内容实际主题命名为 5-10 个字符，避免使用泛化标题、平台原始长标题或无语义短名
 
@@ -394,6 +438,7 @@ TikZ 图必须放在普通 `figure` 环境中，不要放入 `importantbox`、`k
 - 最终的 `.tex` 文件
 - 编译后的 PDF
 - 文档引用的任何提取或生成的图片素材
+- 独立 TikZ / PGFPlots 图稿的 `.tex` 源文件和已编译 PDF
 - 在可用且有价值时，首页引用的封面图或头图
 - 在使用本地语音转文字时，交付转录输出（`.srt` 和 `.json`）
 - 在采用视频内容包工作流时，优先同时交付 `metadata/source.json`
@@ -417,3 +462,5 @@ TikZ 图必须放在普通 `figure` 环境中，不要放入 `importantbox`、`k
 ## 素材
 
 - `assets/notes-template.tex`：默认的 LaTeX 填充模板
+- `assets/tikz-styles.tex`：独立 TikZ / PGFPlots 图稿与模板共用的工程白板式样式
+- `assets/tikz-figure-template.tex`：独立 TikZ 图稿起始模板

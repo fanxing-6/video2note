@@ -34,3 +34,5 @@ models/
 *.png
 
 !assets/notes-template.tex
+!assets/readme-examples/
+!assets/readme-examples/*.png
