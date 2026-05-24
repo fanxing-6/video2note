@@ -40,6 +40,8 @@ $TASK_DIR/
   cover/
     cover.webp
   subtitles/
+    raw.srt
+    clean.srt
     cc.srt
     transcript.srt
     transcript.json
@@ -163,6 +165,22 @@ yt-dlp --skip-download --write-subs --sub-langs "zh-Hans,zh-CN,zh,ai-zh" --conve
 - 优先使用平台内嵌 CC 字幕
 - 字幕语言优先尝试 `zh-Hans`、`zh-CN`、`zh`、`ai-zh`
 - 在仍需定位关键帧时，必须保留时间戳
+- 选定主字幕或 ASR SRT 后，进入写作前必须复制或规范化为 `subtitles/raw.srt`
+- 若需要更适合阅读、摘录或 `dialoguebox` 的文本，可生成 `subtitles/clean.srt`，但不得覆盖 `raw.srt`
+
+### 字幕双轨清洗与校验
+
+`raw.srt` 是证据轨，保留原始时间轴和语义边界；`clean.srt` 是可选阅读轨，只做字幕级纠错、删除无意义语气词、必要断句和轻量停顿空格，不做书面化改写、总结或扩写。
+
+若生成 `clean.srt`，必须运行：
+
+```bash
+python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/check_clean_srt.py" \
+  "$TASK_DIR/subtitles/raw.srt" \
+  "$TASK_DIR/subtitles/clean.srt"
+```
+
+脚本告警需要人工复核；脚本通过也不代表已经做过音频级精听。若 CC 和 ASR 都不可用，不要强造 `clean.srt`，后续按纯视觉模式处理。
 
 ### 优先级 2：本地 `faster-whisper`
 
@@ -281,10 +299,16 @@ $TASK_DIR/metadata/source.json
   "hero_asset_path": "cover/cover.webp",
   "duration": 0,
   "text_artifacts": [
+    "subtitles/raw.srt",
+    "subtitles/clean.srt",
     "subtitles/cc.srt",
     "subtitles/transcript.srt",
     "subtitles/transcript.json"
   ],
+  "primary_text_artifact": "subtitles/clean.srt",
+  "raw_text_artifact": "subtitles/raw.srt",
+  "clean_text_artifact": "subtitles/clean.srt",
+  "coverage_review_path": "output/coverage_review.md",
   "visual_artifacts": [
     "cover/cover.webp",
     "frames/..."
@@ -297,6 +321,9 @@ $TASK_DIR/metadata/source.json
 
 - Bilibili 视频最终必须按 `source_kind=video` 收口，而不是让写作层直接耦合平台探测、分 P 或 Cookie 细节
 - `text_artifacts` 应按实际可用素材填写，CC 字幕与 ASR 结果不要求同时都存在
+- 写作层默认使用 `primary_text_artifact`；事实核查、时间脚注和 coverage review 必须回到 `raw_text_artifact`
+- 若未生成 `clean.srt`，`primary_text_artifact` 可指向 `subtitles/raw.srt`，`clean_text_artifact` 留空或省略
+- 若进入纯视觉模式，文本轨字段可留空，但必须在内容包中明确记录没有可用文本证据
 - 若存在分 P 选择，应以用户最终确认的处理范围为准组织统一内容包
 - `visual_artifacts` 可包含封面图和最终选用的关键帧
 - 写作层优先消费该内容包，而不是回头直接读取平台探测命令的原始输出

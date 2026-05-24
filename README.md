@@ -10,14 +10,44 @@
 
 将 Bilibili、YouTube、TikTok 或 Douyin 等视频内容整理为结构化的中文 LaTeX 笔记，并最终渲染为 PDF。
 
-仓库名和本地项目目录名为 `video2note-skill`；Skill 调用名仍保持 `video2note`。当前仓库采用根级 Skill 结构，`SKILL.md`、`agents/`、`assets/`、`runtime/` 和 `sops/` 都直接位于仓库根目录。
+仓库名和本地项目目录名为 `video2note-skill`；Skill 调用名保持 `video2note`。本仓库采用根级 Skill 结构，`SKILL.md`、`agents/`、`assets/`、`runtime/` 和 `sops/` 都直接位于仓库根目录。
 
 默认工作流包括：
 
 - 使用 `faster-whisper` + `whisper-large-v3` 提取语音内容
 - 使用 `PaddleOCR` + `PP-OCRv5` 提取图片中的文字内容（OCR）
+- 同时保留 `subtitles/raw.srt` 原始证据轨和可选 `subtitles/clean.srt` 清洗阅读轨
 - 当视频包含可用视觉素材时，提取封面、关键帧或重绘图作为插图
+- 对访谈、播客、圆桌类视频，可用 `dialoguebox` 保留短而高信息密度的原始对话片段
+- 正式交付前生成 `coverage_review.md`，独立检查漏召回、误概括和图文错配
 - 输出可编译的 LaTeX 文稿及最终 PDF
+
+## 工作流规定
+
+### dialoguebox
+
+模板内置 `dialoguebox`，只用于访谈、播客、圆桌或强对话视频中短而高价值的原话片段。使用时应保留说话人标签和时间区间；不要把长字幕块、寒暄或普通解释放入 `dialoguebox`。
+
+### 字幕双轨
+
+只要存在平台字幕或 ASR 结果，工作流应保留：
+
+- `subtitles/raw.srt`：原始证据轨，不覆盖，用于时间脚注、事实核查和漏召回审查。
+- `subtitles/clean.srt`：可选清洗轨，只做字幕级纠错、去无意义语气词、必要断句和轻量停顿空格。
+
+生成 `clean.srt` 后，应运行：
+
+```bash
+python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/check_clean_srt.py" \
+  "$TASK_DIR/subtitles/raw.srt" \
+  "$TASK_DIR/subtitles/clean.srt"
+```
+
+纯视觉模式不强造 `clean.srt`。
+
+### coverage review
+
+正式交付前应生成 `output/coverage_review.md`，对照原始字幕/ASR、清洗轨、关键帧清单和最终 `.tex`，只反馈漏召回、误概括、重要细节缺失、图文错配和术语不一致。若用户明确要求快速草稿，可以跳过，但交付时应说明。
 
 ## 仓库结构
 
@@ -31,13 +61,14 @@ video2note-skill/
     tikz-styles.tex
     tikz-figure-template.tex
   runtime/
+    check_clean_srt.py
   sops/
     youtube.md
     bilibili.md
     tiktok-douyin.md
 ```
 
-当前输入路由：
+输入路由：
 
 - YouTube：走 `sops/youtube.md`
 - Bilibili：走 `sops/bilibili.md`
@@ -47,7 +78,7 @@ video2note-skill/
 
 本仓库只提供 Skill 内容与运行时脚本源码，不绑定任何特定工具、安装器或平台私有目录。
 
-你可以将当前仓库根目录按所用工具的约定安装到对应技能目录中；也可以直接读取其中的文档与脚本源码，自行集成到任意支持的工作流中。
+你可以将仓库根目录按所用工具的约定安装到对应技能目录中；也可以直接读取其中的文档与脚本源码，自行集成到任意支持的工作流中。
 
 ## 运行时环境
 
@@ -67,6 +98,7 @@ video2note-skill/
 - `run_ppocrv5.py`
 - `merge_chunked_transcripts.py`
 - `resolve_dlpanda.py`
+- `check_clean_srt.py`
 
 `source <runtime-scripts-dir>/env.sh` 后会导出：
 
@@ -83,7 +115,7 @@ video2note-skill/
 - `runtime/` 只是脚本源码位置，不应被描述为第二套运行时。
 - 所有任务产物默认应写入 `VIDEO2NOTE_TMPDIR` 下的独立子目录，而不是写回 Skill 安装目录。
 - 对于 Bilibili，高分辨率视频流可能需要浏览器 Cookie 才能下载。
-- 对于 TikTok / Douyin，当前视频路径默认通过 `dlpanda` 解析 HTML 并提取直链媒体 URL，不依赖登录 Cookie。
+- 对于 TikTok / Douyin，视频路径默认通过 `dlpanda` 解析 HTML 并提取直链媒体 URL，不依赖登录 Cookie。
 - GPU ASR 只有在共享运行时已补齐 CUDA 依赖时才算可用；若出现 `libcublas` / `libcudnn` / `nvrtc` 缺失，应先补共享 venv。
 - 对 `large-v3` 的真实长视频音轨，建议从更保守的 GPU `batch-size` 起步，再按显存逐步上探，而不是默认假设 `32` 稳定可用。
 - 最终 PDF 默认应使用 `xelatex` 或 `latexmk -xelatex` 编译，而不是把 `pdflatex` 当作默认路径。

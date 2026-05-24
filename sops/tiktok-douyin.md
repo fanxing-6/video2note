@@ -38,6 +38,8 @@ $TASK_DIR/
     input.mp4
     audio.wav
   subtitles/
+    raw.srt
+    clean.srt
     input.srt
     input.json
   frames/
@@ -137,6 +139,22 @@ python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" \
 - ASR 必须在 `audio.wav` 稳定落盘后再开始
 - 不要把“下载 MP4 / 抽音频 / ASR”并行触发
 
+### 字幕双轨清洗与校验
+
+ASR 产出的 SRT 应先复制或规范化为 `subtitles/raw.srt`，作为后续时间脚注、证据核查和 coverage review 的主依据。
+
+若需要更适合阅读、摘录或 `dialoguebox` 的文本，可生成 `subtitles/clean.srt`。`clean.srt` 只做字幕级纠错、删除无意义语气词、必要断句和轻量停顿空格；不要书面化改写、总结、扩写或跨条补词。
+
+若生成 `clean.srt`，必须运行：
+
+```bash
+python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/check_clean_srt.py" \
+  "$TASK_DIR/subtitles/raw.srt" \
+  "$TASK_DIR/subtitles/clean.srt"
+```
+
+脚本告警需要人工复核；脚本通过也不代表已经做过音频级精听。若 ASR 质量不足以形成文本轨，不要强造 `clean.srt`，应提高视觉分析权重。
+
 ## 步骤 4：为抽帧和 OCR 做准备
 
 TikTok / Douyin 的后续抽帧、OCR、写作都必须以本地 MP4 为基础。
@@ -198,9 +216,15 @@ $TASK_DIR/metadata/source.json
   "hero_asset_path": "",
   "duration": 0,
   "text_artifacts": [
+    "subtitles/raw.srt",
+    "subtitles/clean.srt",
     "subtitles/input.srt",
     "subtitles/input.json"
   ],
+  "primary_text_artifact": "subtitles/clean.srt",
+  "raw_text_artifact": "subtitles/raw.srt",
+  "clean_text_artifact": "subtitles/clean.srt",
+  "coverage_review_path": "output/coverage_review.md",
   "visual_artifacts": [
     "frames/..."
   ],
@@ -213,6 +237,9 @@ $TASK_DIR/metadata/source.json
 - TikTok / Douyin 视频最终必须按 `source_kind=video` 收口，而不是让写作层直接耦合 dlpanda 的解析细节
 - `hero_asset_path` 可为空；若后续存在高价值封面或头图，可再写入
 - `text_artifacts` 应按实际可用 ASR 结果填写
+- 写作层默认使用 `primary_text_artifact`；事实核查、时间脚注和 coverage review 必须回到 `raw_text_artifact`
+- 若未生成 `clean.srt`，`primary_text_artifact` 可指向 `subtitles/raw.srt`，`clean_text_artifact` 留空或省略
+- 若没有可用 ASR 文本轨，文本轨字段可留空，但必须在内容包中明确记录没有可用文本证据
 - `visual_artifacts` 可包含最终选用的关键帧
 - 写作层优先消费该内容包，而不是回头直接读取解析 JSON 或 HTML
 

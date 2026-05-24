@@ -77,6 +77,7 @@ source <runtime-scripts-dir>/env.sh
 - `merge_chunked_transcripts.py`：用于合并长视频音轨的分块转录结果
 - `run_ppocrv5.py`：用于识别视频帧、幻灯片截图或裁剪区域中的文字
 - `resolve_dlpanda.py`：用于 TikTok / Douyin 视频路径
+- `check_clean_srt.py`：用于校验清洗字幕轨是否仍落在原始字幕时间边界内，并检查超长、标点、删除和可能漂移
 
 使用示例：
 
@@ -89,6 +90,22 @@ mkdir -p "$TASK_DIR"
 python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" input.wav --model large-v3 --language zh --device cuda --batch-size 8 --output-dir "$TASK_DIR/transcript"
 python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/run_ppocrv5.py" frames/ --device cpu --output-dir "$TASK_DIR/ocr-out"
 ```
+
+### 字幕清洗轨校验
+
+若任务生成 `subtitles/clean.srt`，应使用原始证据轨 `subtitles/raw.srt` 做结构校验：
+
+```bash
+python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/check_clean_srt.py" \
+  "$TASK_DIR/subtitles/raw.srt" \
+  "$TASK_DIR/subtitles/clean.srt"
+```
+
+常用选项：
+
+- `--allowed-deletions 12,18`：允许非纯语气词条目被删除，需人工确认
+- `--fail-on-warnings`：把启发式告警也视作失败
+- `--latin-word-as-one-char`：连续英文或数字按一个可见字符计数
 
 ### GPU ASR 前置检查
 

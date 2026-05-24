@@ -6,7 +6,7 @@ description: 根据用户提供的 Bilibili、YouTube、TikTok 或 Douyin 等视
 
 使用本 Skill 将视频内容转换为一份完整、可编译的 `.tex` 笔记及渲染后的 PDF。
 
-当前支持路径聚焦在 Bilibili、YouTube、TikTok 和 Douyin 视频。主流程先做平台识别与视频素材采集，再把字幕、ASR、关键帧、封面和必要的 OCR 结果整理为视频内容包，最后生成中文 LaTeX/PDF 笔记。
+支持路径聚焦在 Bilibili、YouTube、TikTok 和 Douyin 视频。主流程先做平台识别与视频素材采集，再把字幕、ASR、关键帧、封面和必要的 OCR 结果整理为视频内容包，最后生成中文 LaTeX/PDF 笔记。
 
 ## 运行时基线
 
@@ -23,6 +23,7 @@ Skill 自带的运行时辅助脚本源码位于 `runtime/` 目录下：
 - `run_ppocrv5.py`
 - `merge_chunked_transcripts.py`
 - `resolve_dlpanda.py`
+- `check_clean_srt.py`
 
 目录职责必须严格区分：
 
@@ -56,13 +57,13 @@ Skill 自带的运行时辅助脚本源码位于 `runtime/` 目录下：
 主文档只定义视频笔记的统一契约，不展开各平台的具体采集步骤。
 在开始处理之前，先判断视频来自哪个平台，再跳转到对应 SOP 文档。
 
-### 当前已存在的 SOP
+### SOP 列表
 
 - YouTube：查看 `sops/youtube.md`
 - Bilibili：查看 `sops/bilibili.md`
 - TikTok / Douyin：查看 `sops/tiktok-douyin.md`
 
-后续新增的视频平台 SOP 也应遵循同一主契约，不要把多个平台的具体采集细节混写在当前主文档中。
+后续扩展的视频平台 SOP 也应遵循同一主契约，不要把多个平台的具体采集细节混写在当前主文档中。
 
 ## 视频内容包
 
@@ -82,6 +83,10 @@ $TASK_DIR/metadata/source.json
 - `hero_asset_path`
 - `duration`
 - `text_artifacts[]`
+- `primary_text_artifact`
+- `raw_text_artifact`
+- `clean_text_artifact`
+- `coverage_review_path`
 - `visual_artifacts[]`
 - `locator_type`：`time_range`
 
@@ -116,9 +121,9 @@ $TASK_DIR/metadata/source.json
 - 当某一节内容密集时，将其拆分为更小的子节，逐步建立理解，而不是把所有内容压缩进一个冗长的推导中
 - 不要按时间顺序堆砌字幕或 ASR 内容；将其重写为具有明确意图、对比和递进关系的教学序列
 
-## 当前已支持的视频平台
+## 支持的视频平台
 
-视频输入当前已覆盖以下平台：
+视频输入覆盖以下平台：
 
 ### YouTube
 
@@ -144,10 +149,34 @@ $TASK_DIR/metadata/source.json
    优先使用平台字幕，其次从视频音轨进行 ASR。
 4. **优先获取后续分析真正需要的原始素材**
    优先获取最佳可用本地视频文件、封面、关键帧、章节信息和与讲解对齐的字幕或 ASR 结果。
-5. **在可行的情况下将源文件保存在当前任务目录。**
-   当前任务目录应位于 `VIDEO2NOTE_TMPDIR` 下的独立子目录中。
+5. **在可行的情况下将源文件保存在任务目录。**
+   任务目录应位于 `VIDEO2NOTE_TMPDIR` 下的独立子目录中。
 6. **在进入写作阶段前，先整理视频内容包。**
    写作层优先消费 `metadata/source.json`，而不是直接耦合某个特定视频平台的原始采集结果。
+
+## 字幕双轨策略
+
+当平台字幕或 ASR 结果可用时，应同时保留原始证据轨和清洗阅读轨。
+
+- `subtitles/raw.srt`：原始字幕或 ASR SRT 的规范化副本，永远不覆盖、不删除，作为时间脚注、证据核查和 coverage review 的主依据。
+- `subtitles/clean.srt`：可选清洗轨，用于写作阅读和短对话摘录。只允许字幕级纠错、删除无意义语气词、必要断句和轻量停顿空格；不要书面化改写、总结、扩写或跨条补词。
+- `subtitles/transcript.json`：若转录脚本生成结构化结果，应与 SRT 一起保留。
+- 若生成 `clean.srt`，必须运行 `python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/check_clean_srt.py" "$TASK_DIR/subtitles/raw.srt" "$TASK_DIR/subtitles/clean.srt"`；有告警时人工复核，不能把脚本通过当作音频级精听。
+- 若当前任务进入纯视觉模式，不要强造 `clean.srt`；在 `metadata/source.json` 中记录没有可用文本轨，并提高视觉素材和 OCR 补充的权重。
+
+进入写作阶段前，`metadata/source.json` 应尽量记录：
+
+```json
+{
+  "text_artifacts": ["subtitles/raw.srt", "subtitles/clean.srt", "subtitles/transcript.json"],
+  "primary_text_artifact": "subtitles/clean.srt",
+  "raw_text_artifact": "subtitles/raw.srt",
+  "clean_text_artifact": "subtitles/clean.srt",
+  "coverage_review_path": "output/coverage_review.md"
+}
+```
+
+写作层默认读取 `primary_text_artifact`；涉及事实核查、时间区间、漏召回审查或争议性摘录时，回到 `raw_text_artifact`。
 
 ## 长视频策略
 
@@ -235,6 +264,8 @@ OCR 特别适用于以下场景：
 1. 除非用户要求其他语言，否则使用中文撰写。
 2. 在需要时重构教学流程；不要盲目照搬字幕顺序。
    每个章节在适用情况下应按以下顺序回答：正在解决什么问题、为什么更简单的视角不够、核心思想是什么、如何运作、以及读者应记住什么。
+   避免滥用“不是……而是……”句式；只有当源视频确实建立了有助于理解机制的关键对比时才使用。
+   不要使用空泛抽象表达。主张应尽量落到具体机制、例子、变量、步骤、观察现象、时间戳、图片或讲者证据上。
 3. 以 `assets/notes-template.tex` 为起点。
    该模板已统一提供封面、目录、正文页码、页眉页脚和 `lstlisting` 代码块样式；除非确有必要，不要在生成结果中重新定义这些基础排版规则。
 4. 在可用时，将原始封面或头图放在首页。
@@ -255,10 +286,13 @@ OCR 特别适用于以下场景：
    - `importantbox` 用于读者必须带走的核心概念、关键结论、机制摘要、关键步骤或稠密内容后的压缩重述
    - `knowledgebox` 用于改善理解但不属于主线的背景知识，如前置知识、历史脉络、术语对比、工程上下文、设计权衡和直觉类比
    - `warningbox` 用于常见误解、隐藏前提、易错实现点、错误直觉与正确直觉的对照
+   - `dialoguebox` 只用于访谈、圆桌、播客或强对话视频中的短原话片段；当原话本身比概括更有临场感、幽默、追问张力或直觉价值时使用
+   - `dialoguebox` 必须保留说话人标签和具体时间区间，可包含一个问答或数个紧密相连的澄清/反驳/补充回合；轻微修正 ASR 错字可以，但不要改写为书面表达
+   - 不要把问候、寒暄、长字幕块、普通解释或可以更清楚概括的内容放进 `dialoguebox`
    - 不存在“每章一个 box”的配额；只有在内容真正承载清晰教学信号时才使用
    - box 应尽量紧跟触发它的段落、推导或示例，而不是孤立堆放
    - 常规叙述应保持普通正文；box 用于高信噪比要点，而不是装饰
-   - 图片必须放在 `importantbox`、`knowledgebox` 和 `warningbox` 之外
+   - 图片必须放在 `importantbox`、`knowledgebox`、`warningbox` 和 `dialoguebox` 之外
 10. 每个主要章节以 `\subsection{本章小结}` 收尾。
     当确实存在一到两个高价值外部链接时，可额外添加 `\subsection{拓展阅读}`。
 11. 文档以 `\section{总结与延伸}` 结束。
@@ -420,11 +454,35 @@ latexmk -xelatex -interaction=nonstopmode -halt-on-error \
 
 不要添加没有任何教学意义的装饰性图形。
 
+## Coverage Review
+
+正式交付前默认执行独立漏召回审查，并将结果落盘为：
+
+```text
+$TASK_DIR/output/coverage_review.md
+```
+
+审查输入应包括：原始字幕或 ASR `raw.srt`、清洗轨 `clean.srt`（若存在）、章节计划或最终目录、关键帧清单、最终 `.tex`。审查输出只反馈问题，不直接修改正文。
+
+重点检查：
+
+- 是否遗漏重要概念、关键例子、公式、代码、实验结论、讲者强调或有信息量的对话片段
+- 是否把源视频的具体细节过度概括，导致可验证信息丢失
+- 是否存在图文不匹配、时间脚注和实际帧不一致、对话摘录缺少语境的问题
+- 是否有重要视觉材料只在 OCR 或字幕中被提及，但没有被看图确认或纳入正文
+- 是否有章节衔接断裂、术语前后不一致、同一概念重复定义的问题
+
+长视频、课程视频、多 P 视频、访谈/圆桌/播客视频默认必须执行 coverage review。若用户明确要求快速草稿，可以跳过；最终回复中必须说明未做漏召回审查。
+
+如果环境支持且用户明确允许子代理，可用独立 reviewer agent 执行该阶段；否则由主代理切换到独立审查视角完成。
+
 ## 最终检查清单
 
 在交付前，请核实以下所有内容：
 
 - 没有遗漏重要的教学内容，且在浓缩、重构或总结过程中没有丢失具体但关键的细节
+- 若存在文本轨，已保留 `subtitles/raw.srt`；若生成 `subtitles/clean.srt`，已运行 `check_clean_srt.py` 并复核告警
+- 若正式交付未被用户要求快速跳过，已生成 `output/coverage_review.md` 并处理其中确认为有效的问题
 - 文本与图片保持一致：每张插入的视觉素材都支撑周围的解释；若该素材来自视频帧，应确认裁剪和选帧都已足够准确
 - 文档在教学意义上足够视觉丰富：检查是否应添加更多高信息量的关键帧、配图、重绘图表或 LaTeX / Python 生成插图，以提升清晰度
 - 若文档包含 TikZ 或 PGFPlots 图稿，必须确认每张图都已先独立编译为 PDF 并完成图稿级视觉复核；最终主 PDF 编译后还要查看相关页面或渲染页图，确认图稿插入后没有裁切、过度缩放、caption / 脚注错位、重叠、遮挡、溢出、不可读、箭头歧义和样式失控问题
@@ -440,7 +498,9 @@ latexmk -xelatex -interaction=nonstopmode -halt-on-error \
 - 文档引用的任何提取或生成的图片素材
 - 独立 TikZ / PGFPlots 图稿的 `.tex` 源文件和已编译 PDF
 - 在可用且有价值时，首页引用的封面图或头图
+- 在使用字幕或本地语音转文字时，交付 `subtitles/raw.srt`；若生成清洗轨，一并交付 `subtitles/clean.srt`
 - 在使用本地语音转文字时，交付转录输出（`.srt` 和 `.json`）
+- 正式交付时优先包含 `output/coverage_review.md`；若跳过，说明原因
 - 在采用视频内容包工作流时，优先同时交付 `metadata/source.json`
 
 交付物命名规则：
@@ -464,3 +524,4 @@ latexmk -xelatex -interaction=nonstopmode -halt-on-error \
 - `assets/notes-template.tex`：默认的 LaTeX 填充模板
 - `assets/tikz-styles.tex`：独立 TikZ / PGFPlots 图稿与模板共用的工程白板式样式
 - `assets/tikz-figure-template.tex`：独立 TikZ 图稿起始模板
+- `runtime/check_clean_srt.py`：清洗字幕轨与原始字幕轨的结构校验脚本
