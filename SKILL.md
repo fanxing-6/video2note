@@ -1,10 +1,10 @@
 ---
 name: video2note
-description: 根据用户提供的 Bilibili、YouTube、TikTok 或 Douyin 等视频内容，生成一份专业、结构化的中文 LaTeX 笔记及最终 PDF。
+description: 根据用户提供的 Bilibili、YouTube、TikTok 或 Douyin 等视频内容，生成一份专家讲义型、结构化的中文 LaTeX 深度报告及最终 PDF。
 ---
 # Video2Note
 
-使用本 Skill 将视频内容转换为一份完整、可编译的 `.tex` 笔记及渲染后的 PDF。
+使用本 Skill 将视频内容转换为一份完整、可编译的 `.tex` 深度报告及渲染后的 PDF。
 
 支持路径聚焦在 Bilibili、YouTube、TikTok 和 Douyin 视频。主流程先做平台识别与视频素材采集，再把字幕、ASR、关键帧、封面和必要的 OCR 结果整理为视频内容包，最后生成中文 LaTeX/PDF 笔记。
 
@@ -87,6 +87,7 @@ $TASK_DIR/metadata/source.json
 - `raw_text_artifact`
 - `clean_text_artifact`
 - `coverage_review_path`
+- `analysis_outline_path`
 - `visual_artifacts[]`
 - `locator_type`：`time_range`
 
@@ -99,27 +100,104 @@ $TASK_DIR/metadata/source.json
 
 ## 目标
 
-根据源视频生成一份专业、结构化的中文讲座笔记或主题笔记。
+根据源视频生成一份专业、结构化的中文专家讲义型深度报告。
 
 输出必须满足以下要求：
 
 - 基于源视频的实际教学、分析或论证内容，而非仅机械堆砌字幕或 ASR 文本
+- 正文默认直接讲主题、机制、约束、推导和判断，不写成“视频复盘”或“访谈评论”
+- 结构保持中细粒度；对于 35--60 分钟的高密度对谈、圆桌、播客或 Q\&A 视频，不应压缩成少量过粗大块
+- 只要素材支持，就显式覆盖“概念 $\rightarrow$ 机制 $\rightarrow$ 公式/指标/成本约束 $\rightarrow$ 架构/流程 $\rightarrow$ 行动建议”这条知识链
+- 若某一层确实不适用，不得编造；必须在分析骨架中显式标记 `N/A` 并说明原因
 - 在存在高价值封面或头图时，将其放在首页
 - 在存在高价值视觉素材时，包含必要的关键帧、配图、图表或重绘插图，避免冗余截图
-- 以最终综合章节收尾，涵盖来源中的实质性总结讨论以及你自己提炼的核心要点
+- 以最终综合章节收尾，涵盖来源中的实质性总结内容以及你自己提炼的核心判断
 - 结构上使用 `\section{...}` 和 `\subsection{...}` 进行组织
 - 从 `\documentclass` 到 `\end{document}` 构成一份完整的 `.tex` 文档
 - 作为最终交付物的一部分，必须成功编译为 PDF
 
 ## 教学标准
 
-笔记的阅读体验应当像一位优秀的教师在引导读者学习材料。
+报告的阅读体验应当像一位优秀的教师在讲授一份可以反复查阅的技术讲义。
 
-- 每个主要章节的组织顺序为：先讲动机，再讲核心思想，然后是机制原理，接着是示例或证据，最后是总结要点
+- 每个主要章节默认按“先给判断，再定义问题与概念，再解释机制，然后补形式化层、证据和行动建议”的顺序组织
 - 保持逻辑连贯、动机明确；清楚说明一个概念为何出现、它解决了什么问题、以及下一个概念为何随之而来
 - 追求“深入但易懂”的解释：保留技术深度，但仅在给出直观的白话解释之后才引入形式化表达
-- 当某一节内容密集时，将其拆分为更小的子节，逐步建立理解，而不是把所有内容压缩进一个冗长的推导中
-- 不要按时间顺序堆砌字幕或 ASR 内容；将其重写为具有明确意图、对比和递进关系的教学序列
+- 当材料支持时，主动下钻到公式、指标、成本/约束模型、系统分层、反馈回路或决策流程，而不是停留在泛泛总结
+- 当某一节内容密集时，将其拆分为更小的子节，逐步建立理解，而不是把所有内容压缩进一个冗长的大段落中
+- 不要按时间顺序堆砌字幕或 ASR 内容；将其重写为具有明确意图、递进关系和可执行结论的教学序列
+
+## 分析骨架与主题单元
+
+在进入 LaTeX 写作之前，默认先生成一份可检查的分析骨架，落盘为：
+
+```text
+$TASK_DIR/analysis/outline.md
+```
+
+如有需要，可额外生成机器可读版本，例如 `analysis/units.json`，但 `outline.md` 仍应保留为人工可审查版本。
+
+分析骨架中的每个主题单元至少包含以下字段：
+
+- `question`
+- `core_claim`
+- `mechanism`
+- `evidence_with_timestamps`
+- `formula_or_metric`
+- `cost_or_constraint_model`
+- `architecture_or_decision_flow`
+- `actionable_takeaways`
+
+执行规则如下：
+
+- 对 35--60 分钟的访谈、圆桌、播客或 Q\&A 类视频，默认先拆成 8--12 个中细粒度主题单元
+- 最终报告不得直接从 transcript 压缩生成；必须先形成主题单元分析，再整合为正文
+- 若某个字段不适用，必须在分析骨架中标记 `N/A` 并写明原因，不能留空，更不能凭空补造
+- 正文阶段应以分析骨架为主输入，并将高价值时间戳、原话、图示和图稿需求提前映射到对应主题单元
+
+推荐直接以 `assets/analysis-outline-template.md` 为骨架填写，并在开头明确写出：
+
+- `selected_blueprint`
+- `secondary_blueprint`（若需要）
+- `active_depth_ladders`
+- `target_reader`
+
+## 默认蓝图选择
+
+为了让不同视频都能稳定产出“专家讲义型深度报告”，不要每次从零发明结构。写作前默认先从：
+
+```text
+assets/report-blueprints.md
+```
+
+中选择一个主蓝图，并在必要时附带一个次蓝图。
+
+执行规则如下：
+
+- 对访谈、圆桌、播客、Q\&A 类视频，通常选择“Conversation / Roundtable / Podcast”作为主蓝图
+- 对论文讲解、课程讲授、方法拆解类视频，通常选择“Lecture / Tutorial / Paper Explanation”作为主蓝图
+- 对系统设计、产品架构、工程复盘类视频，通常选择“System / Product Architecture”作为主蓝图
+- 对职业路径、市场判断、岗位选择、行业下注类内容，允许叠加 “Market / Career / Decision Analysis” 作为次蓝图
+- 若没有显式选择蓝图，就直接进入正文，视为流程未通过
+
+蓝图的作用不是限制内容，而是稳定最低结构质量。最终报告可以跨章节混合内容，但分析骨架里必须先说明自己按什么结构组织。
+
+## 深度梯子
+
+为了让“概念 $\rightarrow$ 机制 $\rightarrow$ 公式/指标/成本约束 $\rightarrow$ 架构/流程 $\rightarrow$ 行动建议”变成稳定动作，而不是偶然发挥，写作前默认还要从：
+
+```text
+assets/depth-ladders.md
+```
+
+中选择与本次材料匹配的深度梯子，并把结果记入 `active_depth_ladders`。
+
+执行规则如下：
+
+- 每个主题单元都应映射到至少一个深度梯子
+- 若某主题明显属于某个梯子覆盖范围，却没有产出该梯子要求的形式化层或行动层，视为深度不足
+- 梯子只在材料支持时强制展开；若不支持，必须在分析骨架里说明为什么是 `N/A`
+- Coverage review 需要回头核对：选中的梯子是否真的在正文里落成了图、式、模型、流程或行动建议
 
 ## 支持的视频平台
 
@@ -195,7 +273,7 @@ $TASK_DIR/metadata/source.json
 当字幕不可用或不够充分时，提取视频音轨并在本地进行转录。
 
 ```bash
-ffmpeg -i input.m4a -ar 16000 -ac 1 audio.wav -y
+ffmpeg -nostdin -i input.m4a -ar 16000 -ac 1 audio.wav -y
 python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" \
   audio.wav \
   --model large-v3 \
@@ -210,7 +288,7 @@ python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" \
 对于较长的视频音轨，先分块处理再合并：
 
 ```bash
-ffmpeg -i audio.wav -f segment -segment_time 1800 -c copy audio_chunks/chunk_%02d.wav -y
+ffmpeg -nostdin -i audio.wav -f segment -segment_time 1800 -c copy audio_chunks/chunk_%02d.wav -y
 python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" audio_chunks/chunk_00.wav --model large-v3 --language zh --device cuda --batch-size 8 --output-dir "$TASK_DIR/chunk_transcripts"
 python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/merge_chunked_transcripts.py" "$TASK_DIR/chunk_transcripts" --stem merged
 ```
@@ -242,7 +320,7 @@ OCR 特别适用于以下场景：
 
 ## 教学内容规则
 
-笔记内容应基于以下素材构建：
+报告内容应基于以下素材构建：
 
 - 标题和章节结构（如有）
 - 原始封面图或高价值头图
@@ -263,9 +341,9 @@ OCR 特别适用于以下场景：
 
 1. 除非用户要求其他语言，否则使用中文撰写。
 2. 在需要时重构教学流程；不要盲目照搬字幕顺序。
-   每个章节在适用情况下应按以下顺序回答：正在解决什么问题、为什么更简单的视角不够、核心思想是什么、如何运作、以及读者应记住什么。
+   每个章节在适用情况下应按以下顺序回答：正在解决什么问题、关键概念如何定义、核心思想是什么、如何运作、有哪些可形式化的指标/公式/成本或约束、哪些结构图或决策流程值得画出来，以及读者应采取什么判断或行动。
    避免滥用“不是……而是……”句式；只有当源视频确实建立了有助于理解机制的关键对比时才使用。
-   不要使用空泛抽象表达。主张应尽量落到具体机制、例子、变量、步骤、观察现象、时间戳、图片或讲者证据上。
+   不要使用空泛抽象表达。主张应尽量落到具体机制、例子、变量、步骤、观察现象、时间戳、图片或原话证据上。
 3. 以 `assets/notes-template.tex` 为起点。
    该模板已统一提供封面、目录、正文页码、页眉页脚和 `lstlisting` 代码块样式；除非确有必要，不要在生成结果中重新定义这些基础排版规则。
 4. 在可用时，将原始封面或头图放在首页。
@@ -289,20 +367,27 @@ OCR 特别适用于以下场景：
    - `dialoguebox` 只用于访谈、圆桌、播客或强对话视频中的短原话片段；当原话本身比概括更有临场感、幽默、追问张力或直觉价值时使用
    - `dialoguebox` 必须保留说话人标签和具体时间区间，可包含一个问答或数个紧密相连的澄清/反驳/补充回合；轻微修正 ASR 错字可以，但不要改写为书面表达
    - 不要把问候、寒暄、长字幕块、普通解释或可以更清楚概括的内容放进 `dialoguebox`
+   - `dialoguebox` 是证据块，不是正文骨架；正文主叙事应直接讲主题判断，而不是围绕“谁说了什么”推进
    - 不存在“每章一个 box”的配额；只有在内容真正承载清晰教学信号时才使用
    - box 应尽量紧跟触发它的段落、推导或示例，而不是孤立堆放
    - 常规叙述应保持普通正文；box 用于高信噪比要点，而不是装饰
    - 图片必须放在 `importantbox`、`knowledgebox`、`warningbox` 和 `dialoguebox` 之外
-10. 每个主要章节以 `\subsection{本章小结}` 收尾。
+10. 正文默认采用“专家讲义”文体，而不是“视频复盘”文体。
+    除封面元数据、时间脚注和 `dialoguebox` 外，正文尽量不要出现“讲者认为”“访谈里”“这场讨论”“这期视频”“视频中提到”“这一段讨论”等元叙述。
+    每个正文段落只承载一个主判断，默认控制在 2--4 句；若超过 4 句，必须主动检查是否应拆段，避免长摘要式大段落。
+    章节开头优先先给结论，再展开机制和证据，而不是先评价表达方式再进入内容。
+    若当前蓝图要求导读、自然分段、机制图、决策图或行动建议，不得在正文阶段省略。
+11. 每个主要章节以 `\subsection{本章小结}` 收尾。
+    每个重要章节都应落到“如何判断 / 如何选择 / 如何使用 / 如何避坑”中的至少一种读者动作。
     当确实存在一到两个高价值外部链接时，可额外添加 `\subsection{拓展阅读}`。
-11. 文档以 `\section{总结与延伸}` 结束。
+12. 文档以 `\section{总结与延伸}` 结束。
     该节必须尽可能包含：
-    - 演讲者在收尾阶段给出的实质性总结，而不是礼貌性结束语
-    - 你对核心论点、机制和实践含义的结构化提炼
+    - 源材料在收尾阶段给出的实质性总结，而不是礼貌性结束语
+    - 你对核心论点、机制、约束和实践含义的结构化提炼
     - 跨章节的综合归纳、概念压缩和必要的交叉关联
     - 当材料支持时，给出可执行的 takeaway、开放问题或后续思考方向
 
-12. 不要在 LaTeX 中输出 `[cite]` 占位符。
+13. 不要在 LaTeX 中输出 `[cite]` 占位符。
 
 ## 图片处理
 
@@ -462,15 +547,18 @@ latexmk -xelatex -interaction=nonstopmode -halt-on-error \
 $TASK_DIR/output/coverage_review.md
 ```
 
-审查输入应包括：原始字幕或 ASR `raw.srt`、清洗轨 `clean.srt`（若存在）、章节计划或最终目录、关键帧清单、最终 `.tex`。审查输出只反馈问题，不直接修改正文。
+审查输入应包括：原始字幕或 ASR `raw.srt`、清洗轨 `clean.srt`（若存在）、`analysis/outline.md`、所选蓝图、所选深度梯子、章节计划或最终目录、关键帧清单、最终 `.tex`。审查输出只反馈问题，不直接修改正文。
 
 重点检查：
 
-- 是否遗漏重要概念、关键例子、公式、代码、实验结论、讲者强调或有信息量的对话片段
-- 是否把源视频的具体细节过度概括，导致可验证信息丢失
-- 是否存在图文不匹配、时间脚注和实际帧不一致、对话摘录缺少语境的问题
-- 是否有重要视觉材料只在 OCR 或字幕中被提及，但没有被看图确认或纳入正文
-- 是否有章节衔接断裂、术语前后不一致、同一概念重复定义的问题
+- 文风护栏：正文是否高频出现“讲者/访谈/这场讨论/这期视频/视频中提到”等元叙述，是否存在连续长段落，是否把 `dialoguebox` 当成正文主线
+- 结构护栏：是否显式选择了合适的蓝图；40+ 分钟视频是否已拆成中细粒度主题单元，是否遗漏明显支线，是否仍把多个主题错误压进同一粗大章节
+- 分析深度护栏：是否覆盖了概念、机制、证据；对支持的内容，是否真正按所选深度梯子下钻到公式/指标、成本/约束、架构/流程，而不是只做概括
+- 落地护栏：是否给出可执行的判断框架、使用建议、选择建议或避坑提醒；是否存在“只总结、不建模”的薄弱章节
+- 证据与图文护栏：是否把源视频的具体细节过度概括，导致可验证信息丢失；是否存在图文不匹配、时间脚注和实际帧不一致、对话摘录缺少语境的问题
+- `N/A` 合理性护栏：分析骨架中被标记为 `N/A` 的字段是否确实不适用，还是因为写作阶段漏做了建模或图示
+
+推荐直接以 `assets/coverage-review-template.md` 为审查输出模板。
 
 长视频、课程视频、多 P 视频、访谈/圆桌/播客视频默认必须执行 coverage review。若用户明确要求快速草稿，可以跳过；最终回复中必须说明未做漏召回审查。
 
@@ -480,7 +568,14 @@ $TASK_DIR/output/coverage_review.md
 
 在交付前，请核实以下所有内容：
 
+- 已生成 `analysis/outline.md`，且最终正文确实基于主题单元分析写成，而不是直接压缩 transcript
+- 已显式选择主蓝图；如有需要，也已选择次蓝图，并在分析骨架中写明理由
+- 已显式选择适用的深度梯子，并在分析骨架或审查中验证这些梯子真的落到了正文
+- 对 35--60 分钟的高密度对谈、圆桌、播客或 Q\&A 视频，默认已拆成 8--12 个中细粒度主题单元
 - 没有遗漏重要的教学内容，且在浓缩、重构或总结过程中没有丢失具体但关键的细节
+- 正文几乎不含高频元叙述；若出现“讲者/访谈/视频中”等措辞，应仅限于封面元数据、脚注或 `dialoguebox`
+- 段落密度合理：绝大多数正文段落控制在 2--4 句，且不存在连续堆叠的长摘要式大段落
+- 对支持的章节，已覆盖概念、机制、证据，以及必要的公式/指标、成本约束、架构图/流程图和行动建议
 - 若存在文本轨，已保留 `subtitles/raw.srt`；若生成 `subtitles/clean.srt`，已运行 `check_clean_srt.py` 并复核告警
 - 若正式交付未被用户要求快速跳过，已生成 `output/coverage_review.md` 并处理其中确认为有效的问题
 - 文本与图片保持一致：每张插入的视觉素材都支撑周围的解释；若该素材来自视频帧，应确认裁剪和选帧都已足够准确
@@ -495,6 +590,7 @@ $TASK_DIR/output/coverage_review.md
 
 - 最终的 `.tex` 文件
 - 编译后的 PDF
+- 用于主题拆解和深度检查的 `analysis/outline.md`
 - 文档引用的任何提取或生成的图片素材
 - 独立 TikZ / PGFPlots 图稿的 `.tex` 源文件和已编译 PDF
 - 在可用且有价值时，首页引用的封面图或头图
@@ -522,6 +618,10 @@ $TASK_DIR/output/coverage_review.md
 ## 素材
 
 - `assets/notes-template.tex`：默认的 LaTeX 填充模板
+- `assets/analysis-outline-template.md`：分析骨架填写模板
+- `assets/report-blueprints.md`：按视频类型选择默认结构蓝图
+- `assets/depth-ladders.md`：按主题类型选择默认下钻层级
+- `assets/coverage-review-template.md`：coverage review 输出模板
 - `assets/tikz-styles.tex`：独立 TikZ / PGFPlots 图稿与模板共用的工程白板式样式
 - `assets/tikz-figure-template.tex`：独立 TikZ 图稿起始模板
 - `runtime/check_clean_srt.py`：清洗字幕轨与原始字幕轨的结构校验脚本

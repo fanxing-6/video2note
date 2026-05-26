@@ -131,9 +131,9 @@
 \renewcommand{\sectionmark}[1]{\markboth{\thesection\ #1}{}}
 
 % Front-page metadata
-% 笔记作者信息：用户姓名 & AI助手名称（如 Kimi、GPT-4、Claude 等）
-\newcommand{\notetype}{课程笔记}
-\newcommand{\notetitle}{课程笔记：[在此填写主题]}
+% 报告作者信息：用户姓名 & AI助手名称（如 Kimi、GPT-4、Claude 等）
+\newcommand{\notetype}{深度报告}
+\newcommand{\notetitle}{深度报告：[在此填写主题]}
 \newcommand{\noteauthors}{繁星 \& AI}
 \newcommand{\notedate}{\today}
 \newcommand{\sourceauthor}{[在此填写作者、账号或频道]}
@@ -192,15 +192,30 @@
 
 %% --- 正文内容开始 --- %%
 
-% Replace this block with the generated notes.
+% Replace this block with the generated report body.
 % Fill the metadata block above, especially \sourcecoverpath, so the front page
 % contains the most valuable available video cover or leading visual.
+% The body structure should follow the selected blueprint from
+% assets/report-blueprints.md rather than being invented from scratch each run.
+% The analysis artifact should have already decided the active depth ladders from
+% assets/depth-ladders.md before you start composing prose.
+% Write the body as a direct theme report rather than a recap of the speaker,
+% the interview process, or the video itself.
+% In normal prose, avoid phrases such as "讲者认为"、"访谈里"、"这场讨论"、
+% "这期视频" or "视频中提到"; keep sourcing in footnotes or dialoguebox.
+% Default paragraph rhythm: one main claim per paragraph, usually 2--4 sentences.
+% If a paragraph carries multiple claims or grows beyond 4 sentences, split it
+% unless a compact derivation genuinely needs the extra length.
+% For each major section, prefer the sequence: judgment first, then definition,
+% mechanism, formalizable metric/formula/cost/constraint, architecture or
+% decision flow, and finally reader-facing action guidance.
 % Keep images outside knowledgebox/importantbox/warningbox/dialoguebox.
 % For interview, panel, podcast, or conversation videos, optionally use dialoguebox
 % to preserve a short high-signal original dialogue segment that is especially
 % informative, vivid, funny, or intuitive. It may be a single exchange or several
 % tightly connected turns. Keep speaker labels and source timestamps; do not dump
-% long transcript blocks.
+% long transcript blocks. dialoguebox is an evidence block, not the structural
+% backbone of the report.
 % \begin{dialoguebox}{原始对话片段（00:18:42--00:19:05）}
 % \textbf{主持人}：这里放一句短问题或追问。
 %

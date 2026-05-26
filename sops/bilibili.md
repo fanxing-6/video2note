@@ -189,7 +189,7 @@ python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/check_clean_srt.py" \
 可先抽取音频：
 
 ```bash
-ffmpeg -i "$TASK_DIR/source/video.mp4" -ar 16000 -ac 1 "$TASK_DIR/source/audio.wav" -y
+ffmpeg -nostdin -i "$TASK_DIR/source/video.mp4" -ar 16000 -ac 1 "$TASK_DIR/source/audio.wav" -y
 python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" \
   "$TASK_DIR/source/audio.wav" \
   --model large-v3 \
@@ -204,6 +204,7 @@ python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/transcribe_with_faster_whisper.py" \
 - `ffmpeg` 抽取音频必须在本地视频稳定落盘后再开始
 - ASR 必须在 `audio.wav` 稳定落盘后再开始
 - 不要把“下载视频 / 抽音频 / ASR”并行触发
+- 批处理、管道脚本或自动化脚本中运行 `ffmpeg` 时必须保留 `-nostdin`，避免 `ffmpeg` 读取后续脚本内容并中断流程
 
 ### 优先级 3：纯视觉模式
 

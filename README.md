@@ -8,7 +8,7 @@
 
 如果你是大语言模型（如 GPT、Claude 等），请阅读 [`SKILL.md`](SKILL.md)。
 
-将 Bilibili、YouTube、TikTok 或 Douyin 等视频内容整理为结构化的中文 LaTeX 笔记，并最终渲染为 PDF。
+将 Bilibili、YouTube、TikTok 或 Douyin 等视频内容整理为专家讲义型的中文 LaTeX 深度报告，并最终渲染为 PDF。
 
 仓库名和本地项目目录名为 `video2note-skill`；Skill 调用名保持 `video2note`。本仓库采用根级 Skill 结构，`SKILL.md`、`agents/`、`assets/`、`runtime/` 和 `sops/` 都直接位于仓库根目录。
 
@@ -17,16 +17,47 @@
 - 使用 `faster-whisper` + `whisper-large-v3` 提取语音内容
 - 使用 `PaddleOCR` + `PP-OCRv5` 提取图片中的文字内容（OCR）
 - 同时保留 `subtitles/raw.srt` 原始证据轨和可选 `subtitles/clean.srt` 清洗阅读轨
+- 先从 `assets/report-blueprints.md` 选择主蓝图，再从 `assets/depth-ladders.md` 选择本次必须下钻的分析层
+- 在写 LaTeX 之前先生成 `analysis/outline.md`，把主题拆解为可检查的分析单元
+- 只要素材支持，就覆盖“概念 → 机制 → 公式/指标/成本约束 → 架构/流程 → 行动建议”这条知识链
 - 当视频包含可用视觉素材时，提取封面、关键帧或重绘图作为插图
-- 对访谈、播客、圆桌类视频，可用 `dialoguebox` 保留短而高信息密度的原始对话片段
-- 正式交付前生成 `coverage_review.md`，独立检查漏召回、误概括和图文错配
+- 对访谈、播客、圆桌类视频，可用 `dialoguebox` 保留短而高信息密度的原始对话片段，但它只作为证据块，不作为正文骨架
+- 正式交付前生成 `coverage_review.md`，独立检查漏召回、误概括、文风跑偏、结构过粗和分析深度不足
 - 输出可编译的 LaTeX 文稿及最终 PDF
 
 ## 工作流规定
 
 ### dialoguebox
 
-模板内置 `dialoguebox`，只用于访谈、播客、圆桌或强对话视频中短而高价值的原话片段。使用时应保留说话人标签和时间区间；不要把长字幕块、寒暄或普通解释放入 `dialoguebox`。
+模板内置 `dialoguebox`，只用于访谈、播客、圆桌或强对话视频中短而高价值的原话片段。使用时应保留说话人标签和时间区间；不要把长字幕块、寒暄或普通解释放入 `dialoguebox`。正文默认直接讲主题、机制和判断，`dialoguebox` 只是证据补充。
+
+### 分析骨架
+
+正式写作前默认先产出 `analysis/outline.md`。每个主题单元至少应包含：
+
+- `question`
+- `core_claim`
+- `mechanism`
+- `evidence_with_timestamps`
+- `formula_or_metric`
+- `cost_or_constraint_model`
+- `architecture_or_decision_flow`
+- `actionable_takeaways`
+
+对于 35--60 分钟的访谈、圆桌、播客或 Q\&A 视频，默认先拆成 8--12 个主题单元，再进入正文整合。若某一层不适用，应在分析骨架中标记 `N/A` 并说明原因，而不是静默跳过。
+
+推荐直接使用：
+
+- `assets/analysis-outline-template.md`
+
+### 蓝图与深度梯子
+
+为了提高跨视频类型的稳定性，默认先选结构蓝图，再选分析深度：
+
+- `assets/report-blueprints.md`：决定报告是按对谈、课程、系统架构还是职业/决策分析来组织
+- `assets/depth-ladders.md`：决定这次必须下钻到哪些公式、成本、约束、流程或行动层
+
+没有蓝图就直接写正文，或没有深度梯子就直接写总结，都视为流程不完整。
 
 ### 字幕双轨
 
@@ -47,7 +78,11 @@ python "$VIDEO2NOTE_RUNTIME_SCRIPTS_DIR/check_clean_srt.py" \
 
 ### coverage review
 
-正式交付前应生成 `output/coverage_review.md`，对照原始字幕/ASR、清洗轨、关键帧清单和最终 `.tex`，只反馈漏召回、误概括、重要细节缺失、图文错配和术语不一致。若用户明确要求快速草稿，可以跳过，但交付时应说明。
+正式交付前应生成 `output/coverage_review.md`，对照原始字幕/ASR、清洗轨、`analysis/outline.md`、所选蓝图、所选深度梯子、关键帧清单和最终 `.tex`，只反馈问题，不直接改正文。重点检查四类护栏：文风是否跑回“视频复盘”、结构是否符合蓝图、分析是否真的按深度梯子下钻到公式/指标/成本约束/架构流程，以及是否给出可执行的判断框架或行动建议。若用户明确要求快速草稿，可以跳过，但交付时应说明。
+
+推荐直接使用：
+
+- `assets/coverage-review-template.md`
 
 ## 仓库结构
 
@@ -58,6 +93,10 @@ video2note-skill/
     openai.yaml
   assets/
     notes-template.tex
+    analysis-outline-template.md
+    report-blueprints.md
+    depth-ladders.md
+    coverage-review-template.md
     tikz-styles.tex
     tikz-figure-template.tex
   runtime/
