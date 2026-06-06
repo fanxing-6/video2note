@@ -14,7 +14,7 @@ description: 根据用户提供的 Bilibili、YouTube、TikTok 或 Douyin 等视
 - 最终报告不得直接从 transcript 压缩生成；必须先形成 `analysis/outline.md`。
 - 正文写主题报告，不写视频复盘；除封面元数据、脚注或 `dialoguebox` 外，正文尽量不出现“讲者/访谈/这期视频/视频中提到/这一段讨论”等元叙述。
 - 当材料支持时，必须覆盖“概念 -> 机制 -> 公式/指标/成本约束 -> 架构/流程 -> 行动建议”；不支持时在分析骨架里标记 `N/A` 并写原因。
-- 图片、TikZ、公式、代码、时间戳和 review 都是交付质量的一部分，不是可选装饰。
+- 图片、Web/SVG/PDF 图稿、必要的 TikZ、公式、代码、时间戳和 review 都是交付质量的一部分，不是可选装饰。
 - 搜索视频不是本 skill 的产品能力；skill 处理的是已经确定的视频源或本地内容包。
 
 ## 阶段索引
@@ -28,7 +28,7 @@ description: 根据用户提供的 Bilibili、YouTube、TikTok 或 Douyin 等视
 | 20 Transcribe/OCR | 需要字幕、ASR、OCR、关键帧或视觉素材 | `references/20-transcribe-ocr.md` |
 | 30 Analysis | 写正文之前 | `references/30-analysis-outline.md` |
 | 40 Writing | 生成 LaTeX 正文之前 | `references/40-writing-latex.md` |
-| 50 Visuals/TikZ | 需要流程图、架构图、机制图、截图或重绘图 | `references/50-visuals-tikz.md` |
+| 50 Visuals/Web-SVG/TikZ | 需要流程图、架构图、机制图、截图或重绘图 | `references/50-visuals-tikz.md` |
 | 60 Review/Deliver | 编译 PDF 后、最终回复前 | `references/60-review-delivery.md` |
 
 平台采集细节仍由 SOP 承担：
@@ -75,6 +75,7 @@ $TASK_DIR/metadata/source.json
 - `subtitles/raw.srt`，若使用字幕或 ASR
 - `subtitles/clean.srt`，若生成清洗轨
 - `subtitles/transcript.json`，若使用本地 ASR
+- `figures/src/*`, `figures/svg/*.svg`, `figures/pdf/*.pdf`, `figures/preview/*.png`，若生成 Web/SVG 图稿
 - `figures/tikz-src/*.tex` 与 `figures/tikz-pdf/*.pdf`，若生成 TikZ/PGFPlots 图稿
 - 主 `.tex`
 - 主 PDF
@@ -97,7 +98,8 @@ $TASK_DIR/metadata/source.json
 - 深度梯子从 `assets/depth-ladders.md` 选择，并记录在 `analysis/outline.md`。
 - 分析骨架可从 `assets/analysis-outline-template.md` 起步。
 - Coverage review 可从 `assets/coverage-review-template.md` 起步。
-- TikZ 图稿可从 `assets/tikz-figure-template.tex` 起步，并复用 `assets/tikz-styles.tex`。
+- 图稿默认采用统一 `figure-theme` 后由 Web/SVG/D3/ELK/Vega-Lite 生成，主 LaTeX 默认插入最终 PDF 图稿。
+- TikZ 仅用于简单数学几何图、少节点推导图或 PGFPlots 数值图；可从 `assets/tikz-figure-template.tex` 起步，并复用 `assets/tikz-styles.tex`。
 
 ## 最终验收门禁
 
@@ -109,7 +111,7 @@ $TASK_DIR/metadata/source.json
 - 支持的章节没有缺失公式/指标、成本/约束、架构/流程或行动建议。
 - 每个 `N/A` 都有理由，并在 review 中复核合理性。
 - PDF 使用 XeLaTeX 或 `latexmk -xelatex` 编译成功。
-- 插图和 TikZ 图稿经过视觉抽检；图文、caption、脚注和来源时间区间一致。
+- 插图和图稿经过 SVG/PDF/PNG 视觉抽检；图文、caption、脚注和来源时间区间一致。
 - `output/coverage_review.md` 存在并记录结构、深度、落地性和残余风险。
 
 ## 交付回复
